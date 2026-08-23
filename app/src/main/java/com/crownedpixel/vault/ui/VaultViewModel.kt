@@ -110,6 +110,8 @@ data class VaultUiState(
     val wrap: WrapState = WrapState(),
     val build: BuildState = BuildState(),
     val picker: PickerState? = null,
+    /** Which tab the detail screen was reached from, so back and the tab bar agree. */
+    val detailOrigin: Screen = Screen.LIBRARY,
     val exportWithToken: Boolean = false,
     val transferBusy: Boolean = false,
 ) {
@@ -236,14 +238,19 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun openDetail(slug: String) {
-        _state.value = _state.value.copy(screen = Screen.DETAIL, selected = slug)
+        val from = _state.value.screen.takeIf { it == Screen.UPDATES } ?: Screen.LIBRARY
+        _state.value = _state.value.copy(
+            screen = Screen.DETAIL,
+            selected = slug,
+            detailOrigin = from,
+        )
         viewModelScope.launch { refreshOne(slug) }
     }
 
     fun back(): Boolean {
         val current = _state.value.screen
         return when (current) {
-            Screen.DETAIL -> { goTo(Screen.LIBRARY); true }
+            Screen.DETAIL -> { goTo(_state.value.detailOrigin); true }
             Screen.WRAP, Screen.BUILD -> { goTo(Screen.ADD); true }
             Screen.UPDATES, Screen.ADD, Screen.SETTINGS -> { goTo(Screen.LIBRARY); true }
             Screen.SIGN_IN -> { goTo(Screen.ONBOARDING); true }

@@ -45,9 +45,9 @@ fun AppDetailScreen(state: VaultUiState, model: VaultViewModel) {
             .padding(20.dp),
     ) {
         SectionLabel(
-            text = "← Library",
+            text = if (state.detailOrigin == Screen.UPDATES) "← Updates" else "← Library",
             modifier = Modifier
-                .press { model.goTo(Screen.LIBRARY) }
+                .press { model.goTo(state.detailOrigin) }
                 .padding(bottom = 18.dp),
         )
 

@@ -28,6 +28,7 @@ import com.crownedpixel.vault.ui.VaultUiState
 import com.crownedpixel.vault.ui.VaultViewModel
 import com.crownedpixel.vault.ui.cinzel
 import com.crownedpixel.vault.ui.jost
+import com.crownedpixel.vault.ui.press
 
 @Composable
 fun UpdatesScreen(state: VaultUiState, model: VaultViewModel) {
@@ -81,7 +82,11 @@ fun UpdatesScreen(state: VaultUiState, model: VaultViewModel) {
                 }
 
                 pending.forEach { app ->
-                    UpdateCard(app) { model.install(app.id) }
+                    UpdateCard(
+                        app = app,
+                        onOpen = { model.openDetail(app.id) },
+                        onUpdate = { model.install(app.id) },
+                    )
                 }
             }
         }
@@ -89,7 +94,7 @@ fun UpdatesScreen(state: VaultUiState, model: VaultViewModel) {
 }
 
 @Composable
-private fun UpdateCard(app: LibraryApp, onUpdate: () -> Unit) {
+private fun UpdateCard(app: LibraryApp, onOpen: () -> Unit, onUpdate: () -> Unit) {
     val updating = app.status == AppStatus.UPDATING
     Column(
         modifier = Modifier
@@ -99,17 +104,21 @@ private fun UpdateCard(app: LibraryApp, onUpdate: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Monogram(letter = app.initial, size = 36.dp, textSize = 15)
-            Column(
+            // The name opens the release feed: what is in the update is the reason to tap it.
+            Row(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 12.dp),
+                    .press(onClick = onOpen),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                BasicText(text = app.name, style = jost(15, FontWeight.W500, VaultColors.Bone))
-                BasicText(
-                    text = "${app.installedVersion ?: "—"} → ${app.latestVersion ?: "—"}",
-                    style = cinzel(11, FontWeight.W500, VaultColors.Stone),
-                )
+                Monogram(letter = app.initial, size = 36.dp, textSize = 15)
+                Column(modifier = Modifier.padding(start = 12.dp)) {
+                    BasicText(text = app.name, style = jost(15, FontWeight.W500, VaultColors.Bone))
+                    BasicText(
+                        text = "${app.installedVersion ?: "—"} → ${app.latestVersion ?: "—"}",
+                        style = cinzel(11, FontWeight.W500, VaultColors.Stone),
+                    )
+                }
             }
             if (updating) {
                 SectionLabel(

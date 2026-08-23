@@ -137,7 +137,7 @@ private fun TabBar(state: VaultUiState, model: VaultViewModel) {
         Row(modifier = Modifier.fillMaxWidth()) {
             tabs.forEach { (screen, label) ->
                 val active = state.screen == screen ||
-                    (screen == Screen.LIBRARY && state.screen == Screen.DETAIL) ||
+                    (state.screen == Screen.DETAIL && screen == state.detailOrigin) ||
                     (screen == Screen.ADD && (state.screen == Screen.WRAP || state.screen == Screen.BUILD))
                 Column(
                     modifier = Modifier
