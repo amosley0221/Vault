@@ -2,7 +2,6 @@ package com.crownedpixel.vault.ui.screens
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +20,7 @@ import com.crownedpixel.vault.data.LibraryApp
 import com.crownedpixel.vault.ui.CenteredLabel
 import com.crownedpixel.vault.ui.GoldButton
 import com.crownedpixel.vault.ui.Monogram
+import com.crownedpixel.vault.ui.PullToRefresh
 import com.crownedpixel.vault.ui.ProgressTrack
 import com.crownedpixel.vault.ui.SectionLabel
 import com.crownedpixel.vault.ui.VaultColors
@@ -31,50 +31,59 @@ import com.crownedpixel.vault.ui.jost
 
 @Composable
 fun UpdatesScreen(state: VaultUiState, model: VaultViewModel) {
-    val pending = state.pendingUpdates
-    if (pending.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            Column(
-                modifier = Modifier.padding(top = 80.dp, start = 20.dp, end = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                BasicText(text = "All current", style = cinzel(18, FontWeight.W600))
-                CenteredLabel(
-                    text = "Every library is up to date",
-                    modifier = Modifier.padding(top = 8.dp),
-                    size = 12,
-                )
-            }
-        }
-        return
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+    PullToRefresh(
+        refreshing = state.refreshing,
+        onRefresh = model::refresh,
+        modifier = Modifier.fillMaxSize(),
     ) {
-        Row(
+        val pending = state.pendingUpdates
+        Column(
             modifier = Modifier
+                .weight(1f)
                 .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+                .verticalScroll(rememberScrollState()),
         ) {
-            val count = state.updateCount
-            SectionLabel("$count update${if (count == 1) "" else "s"} available")
-            GoldButton(
-                text = "Update all",
-                verticalPadding = 8.dp,
-                horizontalPadding = 16.dp,
-                labelSize = 10,
-                enabled = count > 0,
-            ) { model.updateAll() }
-        }
+            if (pending.isEmpty()) {
+                // Scrollable even when it fits, so the pull gesture still reaches the refresh.
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 80.dp, start = 20.dp, end = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    BasicText(text = "All current", style = cinzel(18, FontWeight.W600))
+                    CenteredLabel(
+                        text = "Every library is up to date",
+                        modifier = Modifier.padding(top = 8.dp),
+                        size = 12,
+                    )
+                }
+                return@Column
+            }
 
-        pending.forEach { app ->
-            UpdateCard(app) { model.install(app.id) }
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val count = state.updateCount
+                    SectionLabel("$count update${if (count == 1) "" else "s"} available")
+                    GoldButton(
+                        text = "Update all",
+                        verticalPadding = 8.dp,
+                        horizontalPadding = 16.dp,
+                        labelSize = 10,
+                        enabled = count > 0,
+                    ) { model.updateAll() }
+                }
+
+                pending.forEach { app ->
+                    UpdateCard(app) { model.install(app.id) }
+                }
+            }
         }
     }
 }

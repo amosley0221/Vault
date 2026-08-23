@@ -157,6 +157,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     private val installing = mutableSetOf<String>()
     private val pendingInstalls = mutableMapOf<String, String>() // package name -> slug
     private var deviceCode: GitHubApi.DeviceCode? = null
+    private var lastRefreshAt = 0L
 
     init {
         repos = store.readRepos()
@@ -225,7 +226,13 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
 
     fun goTo(screen: Screen) {
         _state.value = _state.value.copy(screen = screen, notice = null)
-        if (screen == Screen.BUILD) loadBuildCandidates()
+        when (screen) {
+            Screen.BUILD -> loadBuildCandidates()
+            // Opening the queue should not show a stale answer, but tapping the tab repeatedly
+            // must not spend the hourly API budget either.
+            Screen.UPDATES -> refreshIfStale()
+            else -> Unit
+        }
     }
 
     fun openDetail(slug: String) {
@@ -252,6 +259,13 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ---------------------------------------------------------------- refresh
+
+    /** Refreshes only when the last read is old enough to be worth another round of API calls. */
+    private fun refreshIfStale() {
+        if (_state.value.refreshing) return
+        if (System.currentTimeMillis() - lastRefreshAt < STALE_AFTER_MS) return
+        refresh()
+    }
 
     fun refresh() {
         if (repos.isEmpty()) return
@@ -283,6 +297,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                 },
             )
             persist()
+            lastRefreshAt = System.currentTimeMillis()
             rebuild { it.copy(refreshing = false) }
             failures.firstOrNull()?.let { error ->
                 notice(error.message ?: "Could not reach GitHub.")
@@ -1188,6 +1203,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
 
     private companion object {
         const val DEVICE_SCOPES = "repo workflow"
+        const val STALE_AFTER_MS = 60 * 1000L
         const val WORKFLOW_TIMEOUT_MS = 15 * 60 * 1000L
         const val RELEASE_TIMEOUT_MS = 3 * 60 * 1000L
     }
