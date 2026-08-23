@@ -1,5 +1,7 @@
 # Vault — GitHub APK Manager
 
+[![Build APK](https://github.com/amosley0221/Vault/actions/workflows/release.yml/badge.svg)](https://github.com/amosley0221/Vault/actions/workflows/release.yml)
+
 Vault installs and updates Android apps straight from GitHub releases, with no store in between.
 Track any repository — your own, starred, or anyone's public one — and Vault watches its release
 feed, downloads the `.apk` asset, checks the signing certificate, and hands it to the platform
@@ -23,7 +25,12 @@ one stable link:
    `https://github.com/amosley0221/Vault/releases/latest`.
 
 `vault.apk.sha256` sits next to the APK in each release if you want to verify the download, and
-every build prints its signing certificate in the workflow log.
+every build prints its signing certificate in the workflow log. Builds signed with the committed
+convenience key carry this certificate:
+
+```
+SHA-256 62:a4:54:f4:a7:5f:73:75:a2:46:30:67:f1:25:76:b6:4f:e6:2a:44:2a:2f:bc:eb:f8:fe:8e:dd:1a:16:aa:4f
+```
 
 Android 8.0 (API 26) or newer.
 
