@@ -22,6 +22,7 @@ import com.crownedpixel.vault.ui.EllipsizedText
 import com.crownedpixel.vault.ui.GoldButton
 import com.crownedpixel.vault.ui.Hairline
 import com.crownedpixel.vault.ui.Monogram
+import com.crownedpixel.vault.ui.PullToRefresh
 import com.crownedpixel.vault.ui.Screen
 import com.crownedpixel.vault.ui.StatusBadge
 import com.crownedpixel.vault.ui.VaultColors
@@ -37,20 +38,26 @@ fun LibraryScreen(state: VaultUiState, model: VaultViewModel) {
         EmptyLibrary(state, model)
         return
     }
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(state.apps, key = { it.id }) { app ->
-            LibraryRow(app) { model.openDetail(app.id) }
-            Hairline(color = VaultColors.Separator)
-        }
-        item {
-            CenteredLabel(
-                text = if (state.refreshing) {
-                    "Checking releases…"
-                } else {
-                    "${state.apps.size} ${if (state.apps.size == 1) "repository" else "repositories"} tracked"
-                },
-                modifier = Modifier.padding(vertical = 18.dp),
-            )
+    PullToRefresh(
+        refreshing = state.refreshing,
+        onRefresh = model::refresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
+            items(state.apps, key = { it.id }) { app ->
+                LibraryRow(app) { model.openDetail(app.id) }
+                Hairline(color = VaultColors.Separator)
+            }
+            item {
+                CenteredLabel(
+                    text = "${state.apps.size} ${if (state.apps.size == 1) "repository" else "repositories"} tracked",
+                    modifier = Modifier.padding(vertical = 18.dp),
+                )
+            }
         }
     }
 }

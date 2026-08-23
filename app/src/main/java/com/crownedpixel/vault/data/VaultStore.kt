@@ -29,14 +29,14 @@ class VaultStore(context: Context) {
                 TrackedRepo(
                     owner = json.getString("owner"),
                     repo = json.getString("repo"),
-                    displayName = json.optString("displayName").ifBlank { json.getString("repo") },
-                    description = json.optString("description"),
-                    packageName = json.optString("packageName").takeIf { it.isNotBlank() },
-                    source = AppSource.from(json.optString("source")),
-                    latestTag = json.optString("latestTag").takeIf { it.isNotBlank() },
-                    latestPublishedAt = json.optString("latestPublishedAt").takeIf { it.isNotBlank() },
+                    displayName = json.text("displayName").ifBlank { json.getString("repo") },
+                    description = json.text("description"),
+                    packageName = json.text("packageName").takeIf { it.isNotBlank() },
+                    source = AppSource.from(json.text("source")),
+                    latestTag = json.text("latestTag").takeIf { it.isNotBlank() },
+                    latestPublishedAt = json.text("latestPublishedAt").takeIf { it.isNotBlank() },
                     addedAt = json.optLong("addedAt"),
-                    installedTag = json.optString("installedTag").takeIf { it.isNotBlank() },
+                    installedTag = json.text("installedTag").takeIf { it.isNotBlank() },
                 )
             }
         }.getOrDefault(emptyList())

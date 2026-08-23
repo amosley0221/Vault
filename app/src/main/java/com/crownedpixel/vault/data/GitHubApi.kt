@@ -45,17 +45,17 @@ object GitHubApi {
         val assets = (0 until assetsJson.length()).map { index ->
             val asset = assetsJson.getJSONObject(index)
             ReleaseAsset(
-                name = asset.optString("name"),
-                browserDownloadUrl = asset.optString("browser_download_url"),
-                apiUrl = asset.optString("url"),
+                name = asset.text("name"),
+                browserDownloadUrl = asset.text("browser_download_url"),
+                apiUrl = asset.text("url"),
                 size = asset.optLong("size"),
             )
         }
         return ReleaseInfo(
-            tag = json.optString("tag_name"),
-            name = json.optString("name").ifBlank { json.optString("tag_name") },
-            publishedAt = json.optString("published_at").ifBlank { json.optString("created_at") },
-            body = json.optString("body"),
+            tag = json.text("tag_name"),
+            name = json.text("name").ifBlank { json.text("tag_name") },
+            publishedAt = json.text("published_at").ifBlank { json.text("created_at") },
+            body = json.text("body"),
             prerelease = json.optBoolean("prerelease"),
             draft = json.optBoolean("draft"),
             assets = assets,
@@ -89,8 +89,8 @@ object GitHubApi {
     suspend fun currentUser(token: String): GitHubAccount {
         val json = JSONObject(get("$API/user", token))
         return GitHubAccount(
-            login = json.optString("login"),
-            name = json.optString("name").takeIf { it.isNotBlank() },
+            login = json.text("login"),
+            name = json.text("name").takeIf { it.isNotBlank() },
             scopes = "",
         )
     }
@@ -100,7 +100,7 @@ object GitHubApi {
     /** Returns the published Pages URL for a repository, or null when it has no Pages site. */
     suspend fun pagesUrl(owner: String, repo: String, token: String?): String? = try {
         val json = JSONObject(get("$API/repos/$owner/$repo/pages", token))
-        json.optString("html_url").takeIf { it.isNotBlank() }
+        json.text("html_url").takeIf { it.isNotBlank() }
     } catch (error: GitHubException) {
         if (error.status == 404) null else throw error
     }
@@ -108,7 +108,7 @@ object GitHubApi {
     // ---------------------------------------------------------------- contents
 
     suspend fun fileSha(owner: String, repo: String, path: String, token: String): String? = try {
-        JSONObject(get("$API/repos/$owner/$repo/contents/$path", token)).optString("sha")
+        JSONObject(get("$API/repos/$owner/$repo/contents/$path", token)).text("sha")
             .takeIf { it.isNotBlank() }
     } catch (error: GitHubException) {
         if (error.status == 404) null else throw error
@@ -139,7 +139,7 @@ object GitHubApi {
         val response = JSONObject(
             send("PUT", "$API/repos/$owner/$repo/contents/$path", token, payload.toString()),
         )
-        return response.optJSONObject("commit")?.optString("sha").orEmpty()
+        return response.optJSONObject("commit")?.text("sha").orEmpty()
     }
 
     // ---------------------------------------------------------------- actions
@@ -161,10 +161,10 @@ object GitHubApi {
             val run = runs.getJSONObject(0)
             WorkflowRun(
                 id = run.optLong("id"),
-                status = run.optString("status"),
-                conclusion = run.optString("conclusion"),
-                htmlUrl = run.optString("html_url"),
-                name = run.optString("name"),
+                status = run.text("status"),
+                conclusion = run.text("conclusion"),
+                htmlUrl = run.text("html_url"),
+                name = run.text("name"),
             )
         }
     } catch (error: GitHubException) {
@@ -206,13 +206,13 @@ object GitHubApi {
     suspend fun requestDeviceCode(clientId: String, scope: String): DeviceCode {
         val body = "client_id=${encode(clientId)}&scope=${encode(scope)}"
         val json = JSONObject(form("$WEB/login/device/code", body))
-        json.optString("error").takeIf { it.isNotBlank() }?.let {
-            throw GitHubException(400, json.optString("error_description").ifBlank { it })
+        json.text("error").takeIf { it.isNotBlank() }?.let {
+            throw GitHubException(400, json.text("error_description").ifBlank { it })
         }
         return DeviceCode(
             deviceCode = json.getString("device_code"),
             userCode = json.getString("user_code"),
-            verificationUri = json.optString("verification_uri").ifBlank { "https://github.com/login/device" },
+            verificationUri = json.text("verification_uri").ifBlank { "https://github.com/login/device" },
             intervalSeconds = json.optInt("interval", 5),
             expiresInSeconds = json.optInt("expires_in", 900),
         )
@@ -222,12 +222,12 @@ object GitHubApi {
         val body = "client_id=${encode(clientId)}&device_code=${encode(deviceCode)}" +
             "&grant_type=urn:ietf:params:oauth:grant-type:device_code"
         val json = JSONObject(form("$WEB/login/oauth/access_token", body))
-        json.optString("access_token").takeIf { it.isNotBlank() }?.let { return DevicePoll.Success(it) }
-        return when (val error = json.optString("error")) {
+        json.text("access_token").takeIf { it.isNotBlank() }?.let { return DevicePoll.Success(it) }
+        return when (val error = json.text("error")) {
             "authorization_pending" -> DevicePoll.Pending
             "slow_down" -> DevicePoll.SlowDown(json.optInt("interval", 10))
             "" -> DevicePoll.Failed("Unexpected response from GitHub.")
-            else -> DevicePoll.Failed(json.optString("error_description").ifBlank { error })
+            else -> DevicePoll.Failed(json.text("error_description").ifBlank { error })
         }
     }
 
@@ -286,7 +286,7 @@ object GitHubApi {
         }
         val remaining = connection.getHeaderField("x-ratelimit-remaining")
         connection.disconnect()
-        val detail = runCatching { JSONObject(text).optString("message") }.getOrNull()
+        val detail = runCatching { JSONObject(text).text("message") }.getOrNull()
         val message = when {
             status == 403 && remaining == "0" ->
                 "GitHub rate limit reached. Sign in to raise the limit to 5,000 checks an hour."

@@ -10,16 +10,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.crownedpixel.vault.data.RepoCandidate
-import com.crownedpixel.vault.ui.CenteredLabel
 import com.crownedpixel.vault.ui.Hairline
 import com.crownedpixel.vault.ui.PickerState
+import com.crownedpixel.vault.ui.PullToRefresh
 import com.crownedpixel.vault.ui.SectionLabel
 import com.crownedpixel.vault.ui.VaultColors
 import com.crownedpixel.vault.ui.jost
@@ -30,6 +33,7 @@ import com.crownedpixel.vault.ui.press
 fun RepoPickerOverlay(
     picker: PickerState,
     onPick: (String) -> Unit,
+    onRefresh: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -54,30 +58,63 @@ fun RepoPickerOverlay(
         }
         Hairline()
 
-        when {
-            picker.loading -> CenteredLabel(
-                text = "Reading release feeds…",
-                modifier = Modifier.padding(top = 40.dp),
-            )
+        PullToRefresh(
+            refreshing = picker.refreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.weight(1f),
+        ) {
+            when {
+                picker.loading -> PickerMessage(
+                    text = "Reading release feeds…",
+                    modifier = Modifier.weight(1f),
+                )
 
-            picker.error != null -> BasicText(
-                text = picker.error,
-                style = jost(13, FontWeight.W300, VaultColors.Gold),
-                modifier = Modifier.padding(20.dp),
-            )
+                picker.error != null -> PickerMessage(
+                    text = picker.error,
+                    color = VaultColors.Gold,
+                    modifier = Modifier.weight(1f),
+                )
 
-            picker.items.isEmpty() -> CenteredLabel(
-                text = "Nothing here publishes an APK asset",
-                modifier = Modifier.padding(top = 40.dp),
-            )
+                picker.items.isEmpty() -> PickerMessage(
+                    text = "Nothing here publishes an APK asset",
+                    modifier = Modifier.weight(1f),
+                )
 
-            else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(picker.items, key = { it.slug }) { candidate ->
-                    PickerRow(candidate) { onPick(candidate.slug) }
-                    Hairline(color = VaultColors.Separator)
+                else -> LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                ) {
+                    items(picker.items, key = { it.slug }) { candidate ->
+                        PickerRow(candidate) { onPick(candidate.slug) }
+                        Hairline(color = VaultColors.Separator)
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * Messages scroll even when they fit, so the pull gesture still reaches the refresh connection on
+ * an empty or failed list — which is exactly when it is wanted.
+ */
+@Composable
+private fun PickerMessage(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = VaultColors.Stone,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        BasicText(
+            text = text,
+            style = jost(13, FontWeight.W300, color),
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 40.dp),
+        )
     }
 }
 

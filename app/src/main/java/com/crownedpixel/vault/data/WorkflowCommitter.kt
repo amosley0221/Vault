@@ -23,7 +23,7 @@ object WorkflowCommitter {
         context.assets.open("workflows/$name").bufferedReader().use { it.readText() }
 
     suspend fun defaultBranch(owner: String, repo: String, token: String?): String =
-        GitHubApi.repository(owner, repo, token).optString("default_branch").ifBlank { "main" }
+        GitHubApi.repository(owner, repo, token).text("default_branch").ifBlank { "main" }
 
     /** Looks for the marks of a Gradle Android project, or of a Pages site. */
     suspend fun detectKind(owner: String, repo: String, token: String?): RepoKind {

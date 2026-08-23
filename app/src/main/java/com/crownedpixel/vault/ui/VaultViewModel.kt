@@ -17,6 +17,7 @@ import com.crownedpixel.vault.data.RepoCandidate
 import com.crownedpixel.vault.data.RepoKind
 import com.crownedpixel.vault.data.TokenStore
 import com.crownedpixel.vault.data.TrackedRepo
+import com.crownedpixel.vault.data.text
 import com.crownedpixel.vault.data.VaultStore
 import com.crownedpixel.vault.data.Versions
 import com.crownedpixel.vault.data.WorkflowCommitter
@@ -72,9 +73,16 @@ data class BuildState(
     val error: String? = null,
 )
 
+enum class PickerKind(val title: String) {
+    MINE("My repositories"),
+    STARRED("Starred repositories with APK releases"),
+}
+
 data class PickerState(
     val title: String,
+    val kind: PickerKind,
     val loading: Boolean = true,
+    val refreshing: Boolean = false,
     val items: List<RepoCandidate> = emptyList(),
     val error: String? = null,
 )
@@ -479,7 +487,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
             owner = owner,
             repo = name,
             displayName = TrackedRepo.prettyName(name),
-            description = repository?.optString("description").orEmpty(),
+            description = repository?.text("description").orEmpty(),
             source = source,
             latestTag = newest?.tag,
             latestPublishedAt = newest?.publishedAt,
@@ -504,30 +512,47 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---------------------------------------------------------------- pickers
 
-    fun openMinePicker() = openPicker("My repositories", onlyOwned = true)
+    fun openMinePicker() = openPicker(PickerKind.MINE)
 
-    fun openStarredPicker() = openPicker("Starred repositories with APK releases", onlyOwned = false)
+    fun openStarredPicker() = openPicker(PickerKind.STARRED)
 
-    private fun openPicker(title: String, onlyOwned: Boolean) {
+    /** Pull-to-refresh on the picker: re-reads GitHub while the current list stays on screen. */
+    fun refreshPicker() {
+        val current = _state.value.picker ?: return
+        if (current.refreshing) return
+        loadPicker(current.kind, reopen = false)
+    }
+
+    private fun openPicker(kind: PickerKind) {
+        loadPicker(kind, reopen = true)
+    }
+
+    private fun loadPicker(kind: PickerKind, reopen: Boolean) {
         val token = token()
         if (token == null) {
             notice("Sign in to list your repositories.")
             goTo(Screen.SETTINGS)
             return
         }
-        _state.value = _state.value.copy(picker = PickerState(title = title))
+        val existing = _state.value.picker
+        _state.value = _state.value.copy(
+            picker = if (reopen || existing == null) {
+                PickerState(title = kind.title, kind = kind)
+            } else {
+                existing.copy(refreshing = true, error = null)
+            },
+        )
         viewModelScope.launch {
             try {
-                val source = if (onlyOwned) {
-                    GitHubApi.myRepositories(token)
-                } else {
-                    GitHubApi.starredRepositories(token)
+                val source = when (kind) {
+                    PickerKind.MINE -> GitHubApi.myRepositories(token)
+                    PickerKind.STARRED -> GitHubApi.starredRepositories(token)
                 }
                 val limiter = Semaphore(4)
                 val candidates = coroutineScope {
                     source.take(60).map { repository ->
                         async {
-                            val slug = repository.optString("full_name")
+                            val slug = repository.text("full_name")
                             val owner = slug.substringBefore('/')
                             val name = slug.substringAfter('/')
                             val release = limiter.withPermit {
@@ -541,9 +566,9 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                             } else {
                                 RepoCandidate(
                                     slug = slug,
-                                    description = repository.optString("description")
-                                        .ifBlank { "APK release ${release.tag}" },
-                                    tag = Versions.normalize(release.tag).let { "v$it" },
+                                    description = repository.text("description")
+                                        .ifBlank { "Latest APK release ${release.tag}" },
+                                    tag = release.tag.ifBlank { "release" },
                                     buildable = true,
                                 )
                             }
@@ -553,13 +578,20 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                     repos.any { it.slug.equals(candidate.slug, ignoreCase = true) }
                 }
                 _state.value = _state.value.copy(
-                    picker = PickerState(title = title, loading = false, items = candidates),
+                    picker = PickerState(
+                        title = kind.title,
+                        kind = kind,
+                        loading = false,
+                        items = candidates,
+                    ),
                 )
             } catch (error: Exception) {
                 _state.value = _state.value.copy(
                     picker = PickerState(
-                        title = title,
+                        title = kind.title,
+                        kind = kind,
                         loading = false,
+                        items = _state.value.picker?.items.orEmpty(),
                         error = error.message ?: "Could not reach GitHub.",
                     ),
                 )
@@ -876,7 +908,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                     owned.map { repository ->
                         async {
                             limiter.withPermit {
-                                val slug = repository.optString("full_name")
+                                val slug = repository.text("full_name")
                                 val owner = slug.substringBefore('/')
                                 val name = slug.substringAfter('/')
                                 val hasApk = runCatching {
