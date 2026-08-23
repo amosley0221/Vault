@@ -1,0 +1,118 @@
+# Committed by Vault (https://github.com/amosley0221/Vault).
+# Builds this repository's Android app and publishes the APK as a release, so Vault — or anyone
+# with the link — can install it directly. Delete this file to stop the automated builds.
+name: Vault APK build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [__VAULT_BRANCH__]
+    paths:
+      - '.github/workflows/vault-android-build.yml'
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vault-android-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Resolve a stable signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.VAULT_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.VAULT_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.VAULT_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.VAULT_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p .vault
+          if [ -n "${KEYSTORE_BASE64:-}" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > .vault/release.jks
+            {
+              echo "STORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "KEY_ALIAS=${KEY_ALIAS:-release}"
+              echo "KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+            } >> "$GITHUB_ENV"
+            echo "committed_key=false" >> "$GITHUB_ENV"
+          elif [ -f .vault/release.jks ] && [ -f .vault/release.properties ]; then
+            # shellcheck disable=SC1091
+            . .vault/release.properties
+            {
+              echo "STORE_PASSWORD=$storePassword"
+              echo "KEY_ALIAS=$keyAlias"
+              echo "KEY_PASSWORD=$keyPassword"
+            } >> "$GITHUB_ENV"
+            echo "committed_key=false" >> "$GITHUB_ENV"
+          else
+            # Android refuses upgrades across signing keys, so the generated key is kept in the
+            # repository. It is a convenience key, not a secret: set the VAULT_KEYSTORE_* secrets
+            # to sign with your own instead.
+            keytool -genkeypair -v -keystore .vault/release.jks -storetype PKCS12 \
+              -alias release -keyalg RSA -keysize 4096 -validity 10950 \
+              -storepass vaultbuild -keypass vaultbuild \
+              -dname "CN=Vault Build Key, O=$GITHUB_REPOSITORY_OWNER"
+            printf 'storePassword=vaultbuild\nkeyAlias=release\nkeyPassword=vaultbuild\n' > .vault/release.properties
+            {
+              echo "STORE_PASSWORD=vaultbuild"
+              echo "KEY_ALIAS=release"
+              echo "KEY_PASSWORD=vaultbuild"
+            } >> "$GITHUB_ENV"
+            echo "committed_key=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew 2>/dev/null || true
+          if [ -x ./gradlew ]; then GRADLE=./gradlew; else GRADLE=gradle; fi
+          $GRADLE --no-daemon assembleRelease || $GRADLE --no-daemon assembleDebug
+
+      - name: Sign and collect the APK
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          APK="$(find . -path '*/build/outputs/apk/*' -name '*.apk' ! -name '*unaligned*' | sort | head -1)"
+          if [ -z "$APK" ]; then echo "No APK produced by the Gradle build." >&2; exit 1; fi
+          mkdir -p dist
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$APK" dist/aligned.apk
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks .vault/release.jks --ks-pass "pass:$STORE_PASSWORD" \
+            --ks-key-alias "$KEY_ALIAS" --key-pass "pass:$KEY_PASSWORD" \
+            --out "dist/${GITHUB_REPOSITORY##*/}.apk" dist/aligned.apk
+          rm -f dist/aligned.apk dist/*.idsig
+          "$BUILD_TOOLS/apksigner" verify --print-certs "dist/${GITHUB_REPOSITORY##*/}.apk"
+
+      - name: Keep the signing key for future builds
+        if: env.committed_key == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f .vault/release.jks .vault/release.properties
+          git commit -m "Vault: store build signing key"
+          git push
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="vault-build-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" "dist/${GITHUB_REPOSITORY##*/}.apk" \
+            --title "$TAG" \
+            --target "$GITHUB_SHA" \
+            --notes "Automated Android build published by the workflow Vault committed to this repository."

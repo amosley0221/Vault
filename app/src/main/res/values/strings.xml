@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Vault</string>
+    <string name="update_channel_name">Release updates</string>
+    <string name="update_channel_description">Silent notifications when a tracked repository publishes a new release.</string>
+</resources>

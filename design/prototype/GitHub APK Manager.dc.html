@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#191613;font-family:'Jost',system-ui,sans-serif}
+a{color:#C6A75E;text-decoration:none}a:hover{color:#E3C57E}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:40px 0">
+<div style="text-align:center">
+<div style="font-family:'Cinzel',serif;font-size:22px;font-weight:600;color:#EDE8DC;letter-spacing:.02em">Vault</div>
+<div style="font-size:11px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-top:4px">GitHub · APK Library · Prototype</div>
+</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" dark="{{ true }}" hint-size="428px,908px">
+<div style="height:100%;display:flex;flex-direction:column;background:#0C0A09;color:#EDE8DC;font-family:'Jost',system-ui,sans-serif">
+
+<sc-if value="{{ isOnboard }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 32px;gap:0">
+    <div style="width:56px;height:56px;border:1px solid #C6A75E;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:26px;color:#C6A75E;margin-bottom:24px">V</div>
+    <div style="font-family:'Cinzel',serif;font-size:28px;font-weight:600;color:#EDE8DC;line-height:1.25;margin-bottom:12px">Your apps,<br>from the source.</div>
+    <div style="font-size:14px;font-weight:300;color:#8F8A80;line-height:1.7;margin-bottom:36px">Vault installs and updates Android apps directly from GitHub releases — no store in between. Track any repository, your own or starred.</div>
+    <div onClick="{{ signIn }}" style="border:1px solid #C6A75E;color:#C6A75E;text-align:center;padding:14px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;transition:all 200ms ease" style-hover="background:#C6A75E;color:#0C0A09">Continue with GitHub</div>
+    <div onClick="{{ skipSignIn }}" style="text-align:center;padding:16px;font-size:11px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;cursor:pointer" style-hover="color:#C6A75E">Browse without signing in</div>
+    <div style="border-top:1px solid rgba(198,167,94,.25);margin-top:28px;padding-top:14px;font-size:11px;color:#8F8A80;line-height:1.6;text-align:center">CREATIVE STUDIO · SIDELOADING REQUIRES "INSTALL UNKNOWN APPS" PERMISSION</div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isSignin }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 32px">
+    <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:14px">github.com/login/device</div>
+    <div style="font-family:'Cinzel',serif;font-size:20px;color:#EDE8DC;margin-bottom:10px">Device authorization</div>
+    <div style="font-size:13px;font-weight:300;color:#8F8A80;line-height:1.7;margin-bottom:24px">Enter this code on GitHub to link Vault to your account. Grants read-only access to repositories and releases.</div>
+    <div style="border:1px solid rgba(198,167,94,.25);text-align:center;padding:18px;font-family:'Cinzel',serif;font-size:26px;letter-spacing:.3em;color:#C6A75E;margin-bottom:24px">B4KD·9WQF</div>
+    <div onClick="{{ finishSignIn }}" style="border:1px solid #C6A75E;color:#C6A75E;text-align:center;padding:14px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;transition:all 200ms ease" style-hover="background:#C6A75E;color:#0C0A09">I've entered the code</div>
+    <div onClick="{{ backToOnboard }}" style="text-align:center;padding:16px;font-size:11px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;cursor:pointer" style-hover="color:#C6A75E">Back</div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ inApp }}" hint-placeholder-val="{{ true }}">
+<div style="padding:18px 20px 14px;border-bottom:1px solid rgba(198,167,94,.25);display:flex;align-items:baseline;justify-content:space-between">
+  <div style="font-family:'Cinzel',serif;font-size:20px;font-weight:600;letter-spacing:.02em">Vault</div>
+  <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase">{{ headerLabel }}</div>
+</div>
+
+<div style="flex:1;overflow:auto">
+
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex-direction:column">
+    <sc-for list="{{ homeApps }}" as="app" hint-placeholder-count="5">
+      <div onClick="{{ app.open }}" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid rgba(198,167,94,.12);cursor:pointer" style-hover="background:#161318">
+        <div style="width:42px;height:42px;border:1px solid rgba(198,167,94,.25);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:18px;color:#C6A75E;flex:none">{{ app.initial }}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:16px;font-weight:500;color:#EDE8DC">{{ app.name }}</div>
+          <div style="font-size:12px;color:#8F8A80;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ app.repoLabel }}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+          <div style="font-family:'Cinzel',serif;font-size:12px;color:#8F8A80">{{ app.versionLine }}</div>
+          <div style="font-size:9px;letter-spacing:.18em;text-transform:uppercase;padding:3px 8px;border:1px solid {{ app.badgeBorder }};color:{{ app.badgeColor }}">{{ app.badge }}</div>
+        </div>
+      </div>
+    </sc-for>
+    <div style="padding:18px 20px;font-size:11px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;text-align:center">{{ libraryCount }} repositories tracked</div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:20px">
+    <div onClick="{{ goHome }}" style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;cursor:pointer;margin-bottom:18px" style-hover="color:#C6A75E">← Library</div>
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:6px">
+      <div style="width:56px;height:56px;border:1px solid rgba(198,167,94,.25);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:24px;color:#C6A75E;flex:none">{{ detail.initial }}</div>
+      <div>
+        <div style="font-family:'Cinzel',serif;font-size:22px;font-weight:600;color:#EDE8DC">{{ detail.name }}</div>
+        <div style="font-size:12px;color:#8F8A80">{{ detail.repoLabel }}</div>
+      </div>
+    </div>
+    <div style="font-size:14px;font-weight:300;color:#EDE8DC;line-height:1.6;margin:14px 0 18px">{{ detail.desc }}</div>
+    <div style="display:flex;gap:24px;padding:14px 0;border-top:1px solid rgba(198,167,94,.25);border-bottom:1px solid rgba(198,167,94,.25);margin-bottom:18px">
+      <div><div style="font-size:9px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:3px">Installed</div><div style="font-family:'Cinzel',serif;font-size:15px;color:#EDE8DC">{{ detail.installedLabel }}</div></div>
+      <div><div style="font-size:9px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:3px">Latest</div><div style="font-family:'Cinzel',serif;font-size:15px;color:#C6A75E">{{ detail.latest }}</div></div>
+      <div><div style="font-size:9px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:3px">Published</div><div style="font-family:'Cinzel',serif;font-size:15px;color:#EDE8DC">{{ detail.date }}</div></div>
+    </div>
+    <sc-if value="{{ detail.isUpdating }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:8px"><span>{{ detail.progressLabel }}</span><span>{{ detail.pct }}</span></div>
+        <div style="height:2px;background:rgba(198,167,94,.15)"><div style="{{ detail.progressStyle }}"></div></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ detail.showAction }}" hint-placeholder-val="{{ true }}">
+      <div onClick="{{ detail.onAction }}" style="border:1px solid #C6A75E;color:#C6A75E;text-align:center;padding:13px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;margin-bottom:24px;transition:all 200ms ease" style-hover="background:#C6A75E;color:#0C0A09">{{ detail.actionLabel }}</div>
+    </sc-if>
+    <sc-if value="{{ detail.isCurrent }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid rgba(198,167,94,.25);color:#8F8A80;text-align:center;padding:13px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:24px">Up to date</div>
+    </sc-if>
+    <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:12px">Releases</div>
+    <sc-for list="{{ detail.releases }}" as="rel" hint-placeholder-count="2">
+      <div style="border-top:1px solid rgba(198,167,94,.12);padding:14px 0">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+          <div style="font-family:'Cinzel',serif;font-size:15px;color:#EDE8DC">{{ rel.v }}</div>
+          <div style="font-size:11px;color:#8F8A80">{{ rel.date }}</div>
+        </div>
+        <sc-for list="{{ rel.notes }}" as="note" hint-placeholder-count="2">
+          <div style="font-size:13px;font-weight:300;color:#8F8A80;line-height:1.6;display:flex;gap:8px"><span style="color:#C6A75E">·</span><span>{{ note.t }}</span></div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isUpdates }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:20px">
+    <sc-if value="{{ hasUpdates }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase">{{ updateCountLabel }}</div>
+        <div onClick="{{ updateAll }}" style="border:1px solid #C6A75E;color:#C6A75E;padding:8px 16px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;transition:all 200ms ease" style-hover="background:#C6A75E;color:#0C0A09">Update all</div>
+      </div>
+      <sc-for list="{{ updatesList }}" as="u" hint-placeholder-count="2">
+        <div style="border:1px solid rgba(198,167,94,.25);padding:14px 16px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:36px;height:36px;border:1px solid rgba(198,167,94,.25);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:15px;color:#C6A75E;flex:none">{{ u.initial }}</div>
+            <div style="flex:1"><div style="font-size:15px;font-weight:500">{{ u.name }}</div><div style="font-family:'Cinzel',serif;font-size:11px;color:#8F8A80">{{ u.versionLine }}</div></div>
+            <sc-if value="{{ u.showBtn }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ u.onUpdate }}" style="border:1px solid #C6A75E;color:#C6A75E;padding:7px 14px;font-size:9px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;transition:all 200ms ease" style-hover="background:#C6A75E;color:#0C0A09">Update</div>
+            </sc-if>
+            <sc-if value="{{ u.isUpdating }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:9px;letter-spacing:.18em;color:#C6A75E;text-transform:uppercase">{{ u.pct }}</div>
+            </sc-if>
+          </div>
+          <sc-if value="{{ u.isUpdating }}" hint-placeholder-val="{{ false }}">
+            <div style="height:2px;background:rgba(198,167,94,.15);margin-top:12px"><div style="{{ u.progressStyle }}"></div></div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </sc-if>
+    <sc-if value="{{ noUpdates }}" hint-placeholder-val="{{ false }}">
+      <div style="text-align:center;padding:80px 20px">
+        <div style="font-family:'Cinzel',serif;font-size:18px;color:#EDE8DC;margin-bottom:8px">All current</div>
+        <div style="font-size:12px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase">Every library is up to date</div>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isAdd }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:24px 20px">
+    <div style="font-family:'Cinzel',serif;font-size:18px;color:#EDE8DC;margin-bottom:6px">Add a repository</div>
+    <div style="font-size:13px;font-weight:300;color:#8F8A80;line-height:1.6;margin-bottom:20px">Track any GitHub repository that publishes APK release assets. New releases are checked in the background.</div>
+    <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:8px">Repository</div>
+    <input value="{{ addValue }}" onChange="{{ onAddChange }}" placeholder="owner/repository" style="width:100%;box-sizing:border-box;background:#161318;border:1px solid rgba(198,167,94,.25);color:#EDE8DC;padding:13px 14px;font-family:'Jost',system-ui,sans-serif;font-size:15px;outline:none;border-radius:0" style-focus="border-color:#C6A75E">
+    <sc-if value="{{ addError }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:12px;color:#C6A75E;margin-top:8px">{{ addErrorMsg }}</div>
+    </sc-if>
+    <div onClick="{{ submitAdd }}" style="border:1px solid #C6A75E;color:#C6A75E;text-align:center;padding:13px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;margin-top:16px;transition:all 200ms ease" style-hover="background:#C6A75E;color:#0C0A09">Add repository</div>
+    <div style="border-top:1px solid rgba(198,167,94,.25);margin-top:28px;padding-top:16px">
+      <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:12px">Or pull from</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div onClick="{{ addFromMine }}" style="border:1px solid rgba(198,167,94,.25);padding:13px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" style-hover="border-color:#C6A75E">
+          <span style="font-size:14px;color:#EDE8DC">My repositories</span><span style="font-size:11px;color:#8F8A80">{{ mineCount }}</span>
+        </div>
+        <div onClick="{{ addFromStars }}" style="border:1px solid rgba(198,167,94,.25);padding:13px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" style-hover="border-color:#C6A75E">
+          <span style="font-size:14px;color:#EDE8DC">Starred repositories with APK releases</span><span style="font-size:11px;color:#8F8A80">{{ starsCount }}</span>
+        </div>
+      </div>
+    </div>
+    <div style="border-top:1px solid rgba(198,167,94,.25);margin-top:28px;padding-top:16px">
+      <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:12px">No APK published?</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div onClick="{{ goWrap }}" style="border:1px solid rgba(198,167,94,.25);padding:13px 16px;cursor:pointer" style-hover="border-color:#C6A75E">
+          <div style="font-size:14px;color:#EDE8DC;margin-bottom:2px">Wrap a website as an app</div>
+          <div style="font-size:11px;color:#8F8A80;line-height:1.5">For repos that are GitHub Pages sites — generates a wrapper APK that opens the site full-screen.</div>
+        </div>
+        <div onClick="{{ goBuild }}" style="border:1px solid rgba(198,167,94,.25);padding:13px 16px;cursor:pointer" style-hover="border-color:#C6A75E">
+          <div style="font-size:14px;color:#EDE8DC;margin-bottom:2px">Build with GitHub Actions</div>
+          <div style="font-size:11px;color:#8F8A80;line-height:1.5">For Android repos you own — commits a workflow that compiles the APK and publishes it as a release.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isWrap }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:24px 20px">
+    <div onClick="{{ goAdd }}" style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;cursor:pointer;margin-bottom:18px" style-hover="color:#C6A75E">← Add</div>
+    <div style="font-family:'Cinzel',serif;font-size:18px;color:#EDE8DC;margin-bottom:6px">Wrap a website</div>
+    <div style="font-size:13px;font-weight:300;color:#8F8A80;line-height:1.6;margin-bottom:20px">Vault generates a small wrapper APK — your site, full-screen, with its own icon and launcher entry. The site itself stays on GitHub Pages; the wrapper updates only when you change name or icon.</div>
+    <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:8px">Repository or Pages URL</div>
+    <input value="{{ wrapValue }}" onChange="{{ onWrapChange }}" placeholder="owner/repository" style="width:100%;box-sizing:border-box;background:#161318;border:1px solid rgba(198,167,94,.25);color:#EDE8DC;padding:13px 14px;font-family:'Jost',system-ui,sans-serif;font-size:15px;outline:none;border-radius:0" style-focus="border-color:#C6A75E">
+    <sc-if value="{{ wrapDetected }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:12px;color:#C6A75E;margin-top:8px">Pages site detected · {{ wrapSiteUrl }}</div>
+    </sc-if>
+    <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin:18px 0 8px">App name</div>
+    <input value="{{ wrapName }}" onChange="{{ onWrapName }}" placeholder="Launcher name" style="width:100%;box-sizing:border-box;background:#161318;border:1px solid rgba(198,167,94,.25);color:#EDE8DC;padding:13px 14px;font-family:'Jost',system-ui,sans-serif;font-size:15px;outline:none;border-radius:0" style-focus="border-color:#C6A75E">
+    <div style="display:flex;align-items:center;gap:14px;margin:18px 0 22px">
+      <div style="width:48px;height:48px;border:1px solid rgba(198,167,94,.25);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:20px;color:#C6A75E;flex:none">{{ wrapInitial }}</div>
+      <div style="font-size:12px;color:#8F8A80;line-height:1.5">Icon from the site's web manifest when present, or a monogram like this one.</div>
+    </div>
+    <sc-if value="{{ wrapBusy }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:8px"><span>{{ wrapStage }}</span><span>{{ wrapPct }}</span></div>
+        <div style="height:2px;background:rgba(198,167,94,.15)"><div style="{{ wrapProgressStyle }}"></div></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ wrapIdle }}" hint-placeholder-val="{{ true }}">
+      <div onClick="{{ startWrap }}" style="border:1px solid #C6A75E;color:#C6A75E;text-align:center;padding:13px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;transition:all 200ms ease" style-hover="background:#C6A75E;color:#0C0A09">Generate wrapper APK</div>
+    </sc-if>
+    <sc-if value="{{ wrapError }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:12px;color:#C6A75E;margin-top:10px">{{ wrapErrorMsg }}</div>
+    </sc-if>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isBuild }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:24px 20px">
+    <div onClick="{{ goAdd }}" style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;cursor:pointer;margin-bottom:18px" style-hover="color:#C6A75E">← Add</div>
+    <div style="font-family:'Cinzel',serif;font-size:18px;color:#EDE8DC;margin-bottom:6px">Build with GitHub Actions</div>
+    <div style="font-size:13px;font-weight:300;color:#8F8A80;line-height:1.6;margin-bottom:20px">Vault commits a build workflow to a repository you own. GitHub Actions compiles the APK and publishes it as a release — from then on it updates like any other tracked app. Requires write access.</div>
+    <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:10px">Your repos without APK releases</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+      <sc-for list="{{ buildRepos }}" as="r" hint-placeholder-count="2">
+        <div onClick="{{ r.pick }}" style="border:1px solid {{ r.border }};padding:13px 16px;cursor:pointer;transition:border-color 200ms ease">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font-size:14px;color:#EDE8DC">{{ r.repo }}</span>
+            <span style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:{{ r.tagColor }}">{{ r.tag }}</span>
+          </div>
+          <div style="font-size:11px;color:#8F8A80;margin-top:2px">{{ r.sub }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="border-top:1px solid rgba(198,167,94,.12);padding-top:14px;margin-bottom:20px">
+      <sc-for list="{{ buildSteps }}" as="s" hint-placeholder-count="3">
+        <div style="display:flex;gap:12px;align-items:baseline;padding:6px 0">
+          <div style="font-family:'Cinzel',serif;font-size:13px;color:{{ s.numColor }};flex:none;width:16px">{{ s.n }}</div>
+          <div style="flex:1;font-size:13px;font-weight:300;color:{{ s.color }};line-height:1.5">{{ s.t }}</div>
+          <div style="font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:{{ s.stateColor }}">{{ s.state }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ buildBusy }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-bottom:18px">
+        <div style="height:2px;background:rgba(198,167,94,.15)"><div style="{{ buildProgressStyle }}"></div></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ buildIdle }}" hint-placeholder-val="{{ true }}">
+      <div onClick="{{ startBuild }}" style="border:1px solid #C6A75E;color:#C6A75E;text-align:center;padding:13px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;transition:all 200ms ease" style-hover="background:#C6A75E;color:#0C0A09">Commit workflow &amp; start build</div>
+    </sc-if>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:24px 20px;display:flex;flex-direction:column;gap:0">
+    <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:12px">Account</div>
+    <div style="border:1px solid rgba(198,167,94,.25);padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <div style="width:36px;height:36px;border:1px solid rgba(198,167,94,.25);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:15px;color:#C6A75E">{{ accountInitial }}</div>
+      <div style="flex:1"><div style="font-size:14px;color:#EDE8DC">{{ accountLine }}</div><div style="font-size:11px;color:#8F8A80">{{ accountSub }}</div></div>
+      <div onClick="{{ toggleAccount }}" style="font-size:10px;letter-spacing:.18em;color:#C6A75E;text-transform:uppercase;cursor:pointer" style-hover="color:#E3C57E">{{ accountAction }}</div>
+    </div>
+    <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:12px">Background checks</div>
+    <div style="display:flex;gap:10px;margin-bottom:8px">
+      <sc-for list="{{ cadences }}" as="c" hint-placeholder-count="3">
+        <div onClick="{{ c.pick }}" style="flex:1;text-align:center;padding:11px 0;font-size:11px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;border:1px solid {{ c.border }};color:{{ c.color }};transition:all 200ms ease">{{ c.label }}</div>
+      </sc-for>
+    </div>
+    <div style="font-size:12px;font-weight:300;color:#8F8A80;line-height:1.6;margin-bottom:24px">Release feeds are polled on this cadence. Uses the GitHub API — unauthenticated checks are limited to 60 per hour.</div>
+    <div style="font-size:10px;letter-spacing:.18em;color:#8F8A80;text-transform:uppercase;margin-bottom:12px">Preferences</div>
+    <sc-for list="{{ prefs }}" as="p" hint-placeholder-count="3">
+      <div onClick="{{ p.toggle }}" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid rgba(198,167,94,.12);cursor:pointer">
+        <div><div style="font-size:14px;color:#EDE8DC">{{ p.label }}</div><div style="font-size:11px;color:#8F8A80">{{ p.sub }}</div></div>
+        <div style="width:36px;height:18px;border:1px solid {{ p.trackBorder }};position:relative;flex:none;transition:all 200ms ease"><div style="{{ p.knobStyle }}"></div></div>
+      </div>
+    </sc-for>
+    <div style="margin-top:24px;padding-top:14px;border-top:1px solid rgba(198,167,94,.25);font-size:11px;color:#8F8A80;line-height:1.7">Vault {{ appVersion }} · Personal access tokens are stored in the Android keystore, never synced.</div>
+  </div>
+</sc-if>
+
+</div>
+
+<div style="display:flex;border-top:1px solid rgba(198,167,94,.25)">
+  <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+    <div onClick="{{ t.go }}" style="flex:1;text-align:center;padding:14px 0 12px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;color:{{ t.color }};border-top:2px solid {{ t.border }}">{{ t.label }}</div>
+  </sc-for>
+</div>
+</sc-if>
+
+</div>
+</x-import>
+<div style="max-width:412px;text-align:center;font-size:12px;color:#8F8A80;line-height:1.6">Interactive prototype — sign in, tap an app, run updates, add a repository. Hand to a developer (or Claude Code) to build the real APK; Obtainium is the closest existing open-source reference.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 520, &quot;height&quot;: 1000}, &quot;skipOnboarding&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Prototype&quot;}}">
+class Component extends DCLogic {
+  state = {
+    screen: this.props.skipOnboarding ? 'home' : 'onboard',
+    signedIn: false, selectedId: null,
+    addValue: '', addError: '', cadence: '12h',
+    wrapValue: 'harlowe/portfolio', wrapName: 'Portfolio', wrapPct: 0, wrapBusy: false, wrapError: '',
+    buildRepo: 'harlowe/fieldkit', buildPct: 0, buildBusy: false, buildStage: 0,
+    prefs: { prerelease: false, wifi: true, notify: true },
+    apps: [
+      { id: 'ledgerline', name: 'Ledgerline', repo: 'harlowe/ledgerline', desc: 'Double-entry personal finance with plain-text ledgers. Local first, no account required.', installed: '2.3.0', latest: '2.4.1', date: 'Aug 18', status: 'update',
+        releases: [
+          { v: 'v2.4.1', date: 'Aug 18, 2026', notes: [{ t: 'Fixed balance rounding on split transactions' }, { t: 'CSV import handles quoted commas' }] },
+          { v: 'v2.4.0', date: 'Aug 02, 2026', notes: [{ t: 'New reconciliation view' }, { t: 'Budgets can roll over month to month' }] },
+          { v: 'v2.3.0', date: 'Jul 11, 2026', notes: [{ t: 'Multi-currency ledgers' }] } ] },
+      { id: 'nightjar', name: 'Nightjar', repo: 'quietfields/nightjar', desc: 'A calm RSS and newsletter reader. Offline sync, typographic reading mode.', installed: '1.8.2', latest: '1.8.2', date: 'Jul 30', status: 'current',
+        releases: [
+          { v: 'v1.8.2', date: 'Jul 30, 2026', notes: [{ t: 'Faster feed refresh on large subscriptions' }] },
+          { v: 'v1.8.0', date: 'Jul 06, 2026', notes: [{ t: 'Newsletter inbox via unique address' }, { t: 'Reading-time estimates' }] } ] },
+      { id: 'fieldnotes', name: 'Fieldnotes', repo: 'harlowe/fieldnotes', desc: 'Markdown notes with git-backed sync. Every note is a file in your own repository.', installed: '0.9.4', latest: '1.0.0', date: 'Aug 21', notes: '', status: 'update',
+        releases: [
+          { v: 'v1.0.0', date: 'Aug 21, 2026', notes: [{ t: 'Stable release — new editor engine' }, { t: 'Conflict resolution UI for merge collisions' }, { t: 'Wiki-links between notes' }] },
+          { v: 'v0.9.4', date: 'Jul 19, 2026', notes: [{ t: 'Fix crash on empty vault' }] } ] },
+      { id: 'brasshour', name: 'Brasshour', repo: 'atelier-dt/brasshour', desc: 'Interval timer for training and craft work. Sequences, bells, haptics.', installed: null, latest: '3.1.0', date: 'Aug 09', status: 'notinstalled',
+        releases: [
+          { v: 'v3.1.0', date: 'Aug 09, 2026', notes: [{ t: 'Wear OS companion' }, { t: 'Custom bell samples' }] } ] },
+      { id: 'inkwell', name: 'Inkwell', repo: 'quietfields/inkwell', desc: 'E-ink friendly ebook reader with hardware page-turn support.', installed: '4.2.1', latest: '4.2.1', date: 'Jun 27', status: 'current',
+        releases: [
+          { v: 'v4.2.1', date: 'Jun 27, 2026', notes: [{ t: 'EPUB 3 footnote popovers' }] } ] },
+    ],
+    progress: {},
+  };
+  componentWillUnmount() { Object.values(this._timers || {}).forEach(clearInterval); }
+  startUpdate(id) {
+    this._timers = this._timers || {};
+    if (this._timers[id]) return;
+    this.setState(s => ({ apps: s.apps.map(a => a.id === id ? { ...a, status: 'updating' } : a), progress: { ...s.progress, [id]: 2 } }));
+    this._timers[id] = setInterval(() => {
+      this.setState(s => {
+        const p = Math.min(100, (s.progress[id] || 0) + 3 + Math.random() * 9);
+        if (p >= 100) {
+          clearInterval(this._timers[id]); delete this._timers[id];
+          return { apps: s.apps.map(a => a.id === id ? { ...a, status: 'current', installed: a.latest.replace(/^v/, '') } : a), progress: { ...s.progress, [id]: 100 } };
+        }
+        return { progress: { ...s.progress, [id]: p } };
+      });
+    }, 180);
+  }
+  startWrapSim() {
+    const S = this.state;
+    if (S.wrapBusy) return;
+    if (!/^[\w.-]+\/[\w.-]+$/.test(S.wrapValue.trim())) { this.setState({ wrapError: 'Enter as owner/repository.' }); return; }
+    if (!S.wrapName.trim()) { this.setState({ wrapError: 'Give the app a launcher name.' }); return; }
+    this.setState({ wrapBusy: true, wrapPct: 2, wrapError: '' });
+    this._timers = this._timers || {};
+    this._timers._wrap = setInterval(() => {
+      this.setState(s => {
+        const p = Math.min(100, s.wrapPct + 4 + Math.random() * 8);
+        if (p >= 100) {
+          clearInterval(this._timers._wrap); delete this._timers._wrap;
+          const repo = s.wrapValue.trim(), id = 'wrap:' + repo;
+          const app = { id, name: s.wrapName.trim(), repo, desc: 'Web wrapper — opens https://' + repo.split('/')[0] + '.github.io/' + repo.split('/')[1] + ' full-screen with its own launcher icon. The site updates itself; the wrapper only changes if you rename or re-icon it.', installed: '1.0', latest: 'wrapper 1.0', date: 'Aug 22', status: 'current',
+            releases: [{ v: 'Wrapper 1.0', date: 'Aug 22, 2026', notes: [{ t: 'Generated by Vault from the Pages site' }] }] };
+          return { wrapBusy: false, wrapPct: 0, apps: s.apps.some(a => a.id === id) ? s.apps : [...s.apps, app], screen: 'detail', selectedId: id };
+        }
+        return { wrapPct: p };
+      });
+    }, 160);
+  }
+  startBuildSim() {
+    if (this.state.buildBusy) return;
+    this.setState({ buildBusy: true, buildPct: 1, buildStage: 0 });
+    this._timers = this._timers || {};
+    this._timers._build = setInterval(() => {
+      this.setState(s => {
+        const p = Math.min(100, s.buildPct + 1.5 + Math.random() * 4);
+        const stage = p < 20 ? 0 : p < 78 ? 1 : 2;
+        if (p >= 100) {
+          clearInterval(this._timers._build); delete this._timers._build;
+          const repo = s.buildRepo, id = 'build:' + repo;
+          const name = repo.split('/')[1].replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          const app = { id, name, repo, desc: 'Built from source by GitHub Actions using the workflow Vault committed. Each new tag builds and publishes an APK release automatically.', installed: null, latest: '1.0.0', date: 'Aug 22', status: 'notinstalled',
+            releases: [{ v: 'v1.0.0', date: 'Aug 22, 2026', notes: [{ t: 'First automated build via android-build.yml' }, { t: 'Signed with a repository-scoped key' }] }] };
+          return { buildBusy: false, buildPct: 0, buildStage: 0, apps: s.apps.some(a => a.id === id) ? s.apps : [...s.apps, app], screen: 'detail', selectedId: id };
+        }
+        return { buildPct: p, buildStage: stage };
+      });
+    }, 200);
+  }
+  renderVals() {
+    const S = this.state, GOLD = '#C6A75E', STONE = '#8F8A80', LINE = 'rgba(198,167,94,.25)';
+    const nav = (screen, extra) => () => this.setState({ screen, ...extra });
+    const badge = a => a.status === 'update' ? 'Update' : a.status === 'updating' ? 'Updating' : a.status === 'notinstalled' ? 'Not installed' : 'Current';
+    const homeApps = S.apps.map(a => ({
+      initial: a.name[0], name: a.name, repoLabel: a.repo,
+      versionLine: a.status === 'notinstalled' ? a.latest : (a.status === 'update' ? a.installed + ' → ' + a.latest.replace(/^v/, '') : 'v' + a.installed),
+      badge: badge(a),
+      badgeColor: a.status === 'current' ? STONE : GOLD,
+      badgeBorder: a.status === 'current' ? LINE : GOLD,
+      open: nav('detail', { selectedId: a.id }),
+    }));
+    const sel = S.apps.find(a => a.id === S.selectedId) || S.apps[0];
+    const pct = Math.round(S.progress[sel.id] || 0);
+    const detail = {
+      initial: sel.name[0], name: sel.name, repoLabel: 'github.com/' + sel.repo, desc: sel.desc,
+      installedLabel: sel.installed ? 'v' + sel.installed : '—',
+      latest: sel.latest.startsWith('v') ? sel.latest : 'v' + sel.latest, date: sel.date,
+      isUpdating: sel.status === 'updating',
+      progressLabel: pct < 88 ? 'Downloading APK' : 'Verifying signature',
+      pct: pct + '%',
+      progressStyle: { height: '2px', background: GOLD, width: pct + '%', transition: 'width 180ms linear' },
+      showAction: sel.status === 'update' || sel.status === 'notinstalled',
+      actionLabel: (sel.status === 'notinstalled' ? 'Install ' : 'Update to ') + (sel.latest.startsWith('v') ? sel.latest : 'v' + sel.latest),
+      onAction: () => this.startUpdate(sel.id),
+      isCurrent: sel.status === 'current',
+      releases: sel.releases,
+    };
+    const pending = S.apps.filter(a => a.status === 'update' || a.status === 'updating');
+    const updatesList = pending.map(a => ({
+      initial: a.name[0], name: a.name,
+      versionLine: (a.installed || '—') + ' → ' + a.latest.replace(/^v/, ''),
+      showBtn: a.status === 'update', isUpdating: a.status === 'updating',
+      pct: Math.round(S.progress[a.id] || 0) + '%',
+      progressStyle: { height: '2px', background: GOLD, width: Math.round(S.progress[a.id] || 0) + '%', transition: 'width 180ms linear' },
+      onUpdate: () => this.startUpdate(a.id),
+    }));
+    const updatable = S.apps.filter(a => a.status === 'update');
+    const tabDefs = [['home', 'Library'], ['updates', updatable.length ? 'Updates · ' + updatable.length : 'Updates'], ['add', 'Add'], ['settings', 'Settings']];
+    const tabs = tabDefs.map(([id, label]) => ({
+      label, go: nav(id),
+      color: S.screen === id || (id === 'home' && S.screen === 'detail') ? GOLD : STONE,
+      border: S.screen === id || (id === 'home' && S.screen === 'detail') ? GOLD : 'transparent',
+    }));
+    const cadences = ['6h', '12h', '24h'].map(c => ({
+      label: c, pick: () => this.setState({ cadence: c }),
+      border: S.cadence === c ? GOLD : LINE, color: S.cadence === c ? GOLD : STONE,
+    }));
+    const prefDefs = [
+      ['prerelease', 'Include pre-releases', 'Offer alpha and beta tags as updates'],
+      ['wifi', 'Download on Wi-Fi only', 'Queue APKs until an unmetered network'],
+      ['notify', 'Notify on new releases', 'Silent notification per repository'],
+    ];
+    const prefs = prefDefs.map(([k, label, sub]) => ({
+      label, sub, toggle: () => this.setState(s => ({ prefs: { ...s.prefs, [k]: !s.prefs[k] } })),
+      trackBorder: S.prefs[k] ? GOLD : LINE,
+      knobStyle: { position: 'absolute', top: '2px', width: '12px', height: '12px', left: S.prefs[k] ? '20px' : '2px', background: S.prefs[k] ? GOLD : STONE, transition: 'left 200ms ease, background 200ms ease' },
+    }));
+    const headerLabels = { home: 'Library', detail: 'Release feed', updates: 'Updates', add: 'Add repository', settings: 'Settings', wrap: 'Wrap website', build: 'Actions build' };
+    const wrapValid = /^[\w.-]+\/[\w.-]+$/.test(S.wrapValue.trim());
+    const buildRepoDefs = [
+      ['harlowe/fieldkit', 'Android app source · Gradle project detected', 'Buildable', true],
+      ['harlowe/recipe-box', 'Kotlin Multiplatform · Android target found', 'Buildable', true],
+      ['harlowe/portfolio', 'Static website · use Wrap instead', 'Website', false],
+    ];
+    const buildRepos = buildRepoDefs.map(([repo, sub, tag, ok]) => ({
+      repo, sub, tag,
+      tagColor: ok ? GOLD : STONE,
+      border: S.buildRepo === repo ? GOLD : LINE,
+      pick: () => { if (ok && !S.buildBusy) this.setState({ buildRepo: repo }); },
+    }));
+    const stageDefs = [['I', 'Commit android-build.yml to the repository'], ['II', 'GitHub Actions compiles and signs the APK'], ['III', 'Release published — Vault picks it up']];
+    const buildSteps = stageDefs.map(([n, t], i) => {
+      const st = !S.buildBusy ? '' : i < S.buildStage ? 'Done' : i === S.buildStage ? 'Running' : 'Queued';
+      return { n, t, state: st,
+        numColor: S.buildBusy && i <= S.buildStage ? GOLD : STONE,
+        color: S.buildBusy && i === S.buildStage ? '#EDE8DC' : STONE,
+        stateColor: st === 'Running' ? GOLD : STONE };
+    });
+    return {
+      isOnboard: S.screen === 'onboard', isSignin: S.screen === 'signin',
+      inApp: !['onboard', 'signin'].includes(S.screen),
+      signIn: nav('signin'), skipSignIn: nav('home'),
+      finishSignIn: () => this.setState({ screen: 'home', signedIn: true }),
+      backToOnboard: nav('onboard'),
+      isHome: S.screen === 'home', isDetail: S.screen === 'detail',
+      isUpdates: S.screen === 'updates', isAdd: S.screen === 'add', isSettings: S.screen === 'settings',
+      isWrap: S.screen === 'wrap', isBuild: S.screen === 'build',
+      goWrap: nav('wrap'), goBuild: nav('build'), goAdd: nav('add'),
+      wrapValue: S.wrapValue, onWrapChange: e => this.setState({ wrapValue: e.target.value, wrapError: '' }),
+      wrapName: S.wrapName, onWrapName: e => this.setState({ wrapName: e.target.value, wrapError: '' }),
+      wrapInitial: (S.wrapName.trim()[0] || '·').toUpperCase(),
+      wrapDetected: wrapValid && !S.wrapBusy,
+      wrapSiteUrl: wrapValid ? S.wrapValue.trim().split('/')[0] + '.github.io/' + S.wrapValue.trim().split('/')[1] : '',
+      wrapBusy: S.wrapBusy, wrapIdle: !S.wrapBusy,
+      wrapStage: S.wrapPct < 35 ? 'Fetching web manifest' : S.wrapPct < 80 ? 'Generating wrapper' : 'Signing APK',
+      wrapPct: Math.round(S.wrapPct) + '%',
+      wrapProgressStyle: { height: '2px', background: GOLD, width: Math.round(S.wrapPct) + '%', transition: 'width 160ms linear' },
+      startWrap: () => this.startWrapSim(),
+      wrapError: !!S.wrapError, wrapErrorMsg: S.wrapError,
+      buildRepos, buildSteps, buildBusy: S.buildBusy, buildIdle: !S.buildBusy,
+      buildProgressStyle: { height: '2px', background: GOLD, width: Math.round(S.buildPct) + '%', transition: 'width 200ms linear' },
+      startBuild: () => this.startBuildSim(),
+      headerLabel: headerLabels[S.screen] || '', goHome: nav('home'),
+      homeApps, libraryCount: S.apps.length, detail,
+      hasUpdates: pending.length > 0, noUpdates: pending.length === 0,
+      updateCountLabel: updatable.length + ' update' + (updatable.length === 1 ? '' : 's') + ' available',
+      updatesList,
+      updateAll: () => updatable.forEach(a => this.startUpdate(a.id)),
+      addValue: S.addValue,
+      onAddChange: e => this.setState({ addValue: e.target.value, addError: '' }),
+      addError: !!S.addError, addErrorMsg: S.addError,
+      submitAdd: () => {
+        const v = S.addValue.trim().replace(/^https?:\/\/github\.com\//, '');
+        if (!/^[\w.-]+\/[\w.-]+$/.test(v)) { this.setState({ addError: 'Enter as owner/repository — e.g. harlowe/ledgerline' }); return; }
+        if (S.apps.some(a => a.repo === v)) { this.setState({ addError: 'Already tracked.' }); return; }
+        const name = v.split('/')[1].replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const app = { id: v, name, repo: v, desc: 'Newly tracked repository. The latest release with an APK asset is shown below.', installed: null, latest: '1.0.0', date: 'Aug 22', status: 'notinstalled',
+          releases: [{ v: 'v1.0.0', date: 'Aug 22, 2026', notes: [{ t: 'Latest release with an APK asset' }] }] };
+        this.setState(s => ({ apps: [...s.apps, app], screen: 'detail', selectedId: v, addValue: '', addError: '' }));
+      },
+      addFromMine: () => this.setState({ addValue: 'harlowe/', addError: '' }),
+      addFromStars: () => this.setState({ addValue: '', addError: 'Prototype: star-based discovery would list starred repos with APK assets.' }),
+      mineCount: '2 with releases', starsCount: '14 found',
+      accountInitial: S.signedIn ? 'H' : '·',
+      accountLine: S.signedIn ? 'harlowe' : 'Not signed in',
+      accountSub: S.signedIn ? 'Read-only · repos, releases, stars' : 'Public repositories only · 60 checks/hr',
+      accountAction: S.signedIn ? 'Sign out' : 'Sign in',
+      toggleAccount: () => S.signedIn ? this.setState({ signedIn: false }) : this.setState({ screen: 'signin' }),
+      cadences, prefs, tabs, appVersion: 'v0.1 (prototype)',
+    };
+  }
+}
+</script>
+</body>
+</html>

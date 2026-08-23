@@ -1,0 +1,138 @@
+name: Build APK
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'design/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vault-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Ensure the SDK packages the build needs
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+
+      - name: Resolve the version
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.1.0+${GITHUB_RUN_NUMBER}"
+          fi
+          echo "VAULT_VERSION_NAME=$VERSION" >> "$GITHUB_ENV"
+          echo "VAULT_VERSION_CODE=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+
+      - name: Use the repository signing secrets when present
+        env:
+          KEYSTORE_BASE64: ${{ secrets.VAULT_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.VAULT_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.VAULT_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.VAULT_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "${KEYSTORE_BASE64:-}" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            {
+              echo "VAULT_KEYSTORE_FILE=$RUNNER_TEMP/release.jks"
+              echo "VAULT_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "VAULT_KEY_ALIAS=${KEY_ALIAS:-vault}"
+              echo "VAULT_KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+            } >> "$GITHUB_ENV"
+            echo "Signing with the repository's own key."
+          else
+            echo "Signing with the committed convenience key (keystore/vault-ci.jks)."
+          fi
+
+      - name: Assemble
+        env:
+          VAULT_GITHUB_CLIENT_ID: ${{ secrets.VAULT_GITHUB_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleRelease
+
+      - name: Collect the APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/vault.apk"
+          cp app/build/outputs/apk/release/app-release.apk "dist/vault-${VAULT_VERSION_NAME}.apk"
+          ( cd dist && sha256sum vault.apk > vault.apk.sha256 )
+          BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$BUILD_TOOLS/apksigner" verify --print-certs dist/vault.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vault-apk
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Publish the rolling download
+        if: github.ref_type == 'branch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          NOTES="Rolling build of \`${GITHUB_REF_NAME}\` — commit ${GITHUB_SHA::7}, version ${VAULT_VERSION_NAME}.
+
+          Download **vault.apk** below and open it on the device. Android asks for permission to install unknown apps the first time."
+          if gh release view latest > /dev/null 2>&1; then
+            gh release edit latest --notes "$NOTES" --target "$GITHUB_SHA" --title "Vault — latest build"
+            gh release upload latest dist/vault.apk dist/vault.apk.sha256 --clobber
+          else
+            gh release create latest dist/vault.apk dist/vault.apk.sha256 \
+              --title "Vault — latest build" \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --notes "$NOTES"
+          fi
+
+      - name: Publish the tagged release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/vault.apk" "dist/vault-${VAULT_VERSION_NAME}.apk" "dist/vault.apk.sha256" \
+            --title "Vault ${GITHUB_REF_NAME}" \
+            --generate-notes || \
+          gh release upload "$GITHUB_REF_NAME" \
+            "dist/vault.apk" "dist/vault-${VAULT_VERSION_NAME}.apk" "dist/vault.apk.sha256" --clobber
+
+      - name: Summary
+        run: |
+          {
+            echo "### Vault ${VAULT_VERSION_NAME}"
+            echo
+            echo "Direct download: https://github.com/${GITHUB_REPOSITORY}/releases/download/latest/vault.apk"
+            echo
+            echo '```'
+            sha256sum dist/vault.apk
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

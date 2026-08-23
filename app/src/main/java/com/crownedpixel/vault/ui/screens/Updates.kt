@@ -1,0 +1,128 @@
+package com.crownedpixel.vault.ui.screens
+
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.crownedpixel.vault.data.AppStatus
+import com.crownedpixel.vault.data.LibraryApp
+import com.crownedpixel.vault.ui.CenteredLabel
+import com.crownedpixel.vault.ui.GoldButton
+import com.crownedpixel.vault.ui.Monogram
+import com.crownedpixel.vault.ui.ProgressTrack
+import com.crownedpixel.vault.ui.SectionLabel
+import com.crownedpixel.vault.ui.VaultColors
+import com.crownedpixel.vault.ui.VaultUiState
+import com.crownedpixel.vault.ui.VaultViewModel
+import com.crownedpixel.vault.ui.cinzel
+import com.crownedpixel.vault.ui.jost
+
+@Composable
+fun UpdatesScreen(state: VaultUiState, model: VaultViewModel) {
+    val pending = state.pendingUpdates
+    if (pending.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            Column(
+                modifier = Modifier.padding(top = 80.dp, start = 20.dp, end = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                BasicText(text = "All current", style = cinzel(18, FontWeight.W600))
+                CenteredLabel(
+                    text = "Every library is up to date",
+                    modifier = Modifier.padding(top = 8.dp),
+                    size = 12,
+                )
+            }
+        }
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val count = state.updateCount
+            SectionLabel("$count update${if (count == 1) "" else "s"} available")
+            GoldButton(
+                text = "Update all",
+                verticalPadding = 8.dp,
+                horizontalPadding = 16.dp,
+                labelSize = 10,
+                enabled = count > 0,
+            ) { model.updateAll() }
+        }
+
+        pending.forEach { app ->
+            UpdateCard(app) { model.install(app.id) }
+        }
+    }
+}
+
+@Composable
+private fun UpdateCard(app: LibraryApp, onUpdate: () -> Unit) {
+    val updating = app.status == AppStatus.UPDATING
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+            .border(1.dp, VaultColors.Hairline)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Monogram(letter = app.initial, size = 36.dp, textSize = 15)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp),
+            ) {
+                BasicText(text = app.name, style = jost(15, FontWeight.W500, VaultColors.Bone))
+                BasicText(
+                    text = "${app.installedVersion ?: "—"} → ${app.latestVersion ?: "—"}",
+                    style = cinzel(11, FontWeight.W500, VaultColors.Stone),
+                )
+            }
+            if (updating) {
+                SectionLabel(
+                    text = "${(app.progress * 100).toInt()}%",
+                    color = VaultColors.Gold,
+                    size = 9,
+                )
+            } else {
+                GoldButton(
+                    text = "Update",
+                    verticalPadding = 7.dp,
+                    horizontalPadding = 14.dp,
+                    labelSize = 9,
+                    onClick = onUpdate,
+                )
+            }
+        }
+        if (updating) {
+            ProgressTrack(
+                fraction = app.progress,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+        }
+    }
+}

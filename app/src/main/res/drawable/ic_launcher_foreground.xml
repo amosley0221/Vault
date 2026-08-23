@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Hairline square: the monogram frame used throughout the interface. -->
+    <path
+        android:pathData="M30,30 H78 V78 H30 Z M32,32 V76 H76 V32 Z"
+        android:fillColor="#C6A75E"
+        android:fillType="evenOdd" />
+    <!-- Cinzel-flavoured V: tapered strokes with serif feet. -->
+    <path
+        android:pathData="M38,40 H50 V42.4 H47.2 L54,63.4 L60.8,42.4 H58 V40 H70 V42.4 H67.1 L57.6,70 H50.4L40.9,42.4 H38 Z"
+        android:fillColor="#C6A75E" />
+</vector>
