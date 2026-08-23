@@ -17,6 +17,7 @@ import com.crownedpixel.vault.data.RepoCandidate
 import com.crownedpixel.vault.data.RepoKind
 import com.crownedpixel.vault.data.TokenStore
 import com.crownedpixel.vault.data.TrackedRepo
+import com.crownedpixel.vault.data.UpdateCheck
 import com.crownedpixel.vault.data.text
 import com.crownedpixel.vault.data.VaultStore
 import com.crownedpixel.vault.data.Versions
@@ -25,6 +26,7 @@ import com.crownedpixel.vault.install.ApkInstaller
 import com.crownedpixel.vault.install.InstallEvents
 import com.crownedpixel.vault.install.InstalledApps
 import com.crownedpixel.vault.work.UpdateScheduler
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -35,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -176,21 +179,24 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
             val newest = cached.firstOrNull { release ->
                 release.apkAssets.isNotEmpty() && (preferences.includePrereleases || !release.prerelease)
             }
-            val latestVersion = newest?.version ?: repo.latestTag?.let { Versions.normalize(it) }
+            val latestVersion = newest?.version ?: repo.latestVersion
+            val latestMillis = Dates.epochMillis(newest?.timestamp ?: repo.latestPublishedAt)
             val installedVersion = InstalledApps.installedVersion(context, repo.packageName)
                 ?: repo.installedTag?.takeIf { repo.packageName == null }?.let { Versions.normalize(it) }
+            val installedMillis = InstalledApps.lastUpdateTime(context, repo.packageName)
             val inFlight = progress[repo.slug]
             val status = when {
                 inFlight != null -> AppStatus.UPDATING
                 installedVersion == null -> AppStatus.NOT_INSTALLED
-                latestVersion != null && Versions.isNewer(latestVersion, installedVersion) -> AppStatus.UPDATE
+                UpdateCheck.isNewer(latestVersion, latestMillis, installedVersion, installedMillis) ->
+                    AppStatus.UPDATE
                 else -> AppStatus.CURRENT
             }
             LibraryApp(
                 tracked = repo,
                 installedVersion = installedVersion,
                 latestVersion = latestVersion,
-                publishedLabel = Dates.short(newest?.publishedAt ?: repo.latestPublishedAt),
+                publishedLabel = Dates.short(newest?.timestamp ?: repo.latestPublishedAt),
                 status = status,
                 progress = inFlight?.first ?: 0f,
                 progressStage = inFlight?.second.orEmpty(),
@@ -257,13 +263,20 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }.map { it.await() }
             }.filterNotNull()
-            repos = repos.map { repo ->
-                val newest = releases[repo.slug]?.firstOrNull { it.apkAssets.isNotEmpty() }
-                if (newest == null) repo else repo.copy(
-                    latestTag = newest.tag,
-                    latestPublishedAt = newest.publishedAt,
-                )
-            }
+            repos = adoptInstalledPackages(
+                repos.map { repo ->
+                    val newest = releases[repo.slug]?.firstOrNull { it.apkAssets.isNotEmpty() }
+                    if (newest == null) {
+                        repo
+                    } else {
+                        repo.copy(
+                            latestTag = newest.tag,
+                            latestVersion = newest.version,
+                            latestPublishedAt = newest.timestamp,
+                        )
+                    }
+                },
+            )
             persist()
             rebuild { it.copy(refreshing = false) }
             failures.firstOrNull()?.let { error ->
@@ -277,6 +290,27 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         runCatching { fetchReleases(repo, token()) }
             .onFailure { notice(it.message) }
         rebuild()
+    }
+
+    /**
+     * An app installed by hand — sideloaded from the browser, or installed before it was tracked —
+     * has no package name on record, so it reads as "not installed" forever. Match those against
+     * what is actually on the device, off the main thread: the sweep is not free.
+     */
+    private suspend fun adoptInstalledPackages(candidates: List<TrackedRepo>): List<TrackedRepo> {
+        if (candidates.none { it.packageName == null }) return candidates
+        return withContext(Dispatchers.Default) {
+            val index = InstalledApps.installedIndex(context)
+            candidates.map { repo ->
+                if (repo.packageName != null) {
+                    repo
+                } else {
+                    InstalledApps.match(index, repo.repo, repo.displayName)
+                        ?.let { repo.copy(packageName = it) }
+                        ?: repo
+                }
+            }
+        }
     }
 
     private suspend fun fetchReleases(repo: TrackedRepo, token: String?) {
@@ -365,7 +399,8 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                             packageName = packageName,
                             installedTag = release.tag,
                             latestTag = release.tag,
-                            latestPublishedAt = release.publishedAt,
+                            latestVersion = release.version,
+                            latestPublishedAt = release.timestamp,
                         )
                     } else {
                         it
@@ -490,7 +525,8 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
             description = repository?.text("description").orEmpty(),
             source = source,
             latestTag = newest?.tag,
-            latestPublishedAt = newest?.publishedAt,
+            latestVersion = newest?.version,
+            latestPublishedAt = newest?.timestamp,
             addedAt = System.currentTimeMillis(),
         )
         repos = repos + tracked

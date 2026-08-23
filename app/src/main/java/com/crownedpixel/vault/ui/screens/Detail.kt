@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.em
 import com.crownedpixel.vault.data.AppStatus
 import com.crownedpixel.vault.data.Dates
 import com.crownedpixel.vault.data.LibraryApp
+import com.crownedpixel.vault.data.Versions
 import com.crownedpixel.vault.ui.GhostAction
 import com.crownedpixel.vault.ui.GoldButton
 import com.crownedpixel.vault.ui.Hairline
@@ -76,8 +77,8 @@ fun AppDetailScreen(state: VaultUiState, model: VaultViewModel) {
                 .padding(vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            StatColumn("Installed", app.installedVersion?.let { "v$it" } ?: "—")
-            StatColumn("Latest", app.latestVersion?.let { "v$it" } ?: "—", VaultColors.Gold)
+            StatColumn("Installed", Versions.label(app.installedVersion))
+            StatColumn("Latest", Versions.label(app.latestVersion), VaultColors.Gold)
             StatColumn("Published", app.publishedLabel)
         }
         Hairline(modifier = Modifier.padding(bottom = 18.dp))
@@ -91,9 +92,9 @@ fun AppDetailScreen(state: VaultUiState, model: VaultViewModel) {
 
             AppStatus.UPDATE, AppStatus.NOT_INSTALLED -> GoldButton(
                 text = if (app.status == AppStatus.NOT_INSTALLED) {
-                    "Install v${app.latestVersion ?: "—"}"
+                    "Install ${Versions.label(app.latestVersion)}"
                 } else {
-                    "Update to v${app.latestVersion ?: "—"}"
+                    "Update to ${Versions.label(app.latestVersion)}"
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -123,7 +124,7 @@ fun AppDetailScreen(state: VaultUiState, model: VaultViewModel) {
                 ) {
                     BasicText(text = release.tag, style = cinzel(15, FontWeight.W500))
                     BasicText(
-                        text = Dates.long(release.publishedAt),
+                        text = Dates.long(release.timestamp),
                         style = jost(11, FontWeight.W400, VaultColors.Stone),
                     )
                 }

@@ -19,9 +19,11 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.crownedpixel.vault.MainActivity
 import com.crownedpixel.vault.R
+import com.crownedpixel.vault.data.Dates
 import com.crownedpixel.vault.data.GitHubApi
 import com.crownedpixel.vault.data.Preferences
 import com.crownedpixel.vault.data.TokenStore
+import com.crownedpixel.vault.data.UpdateCheck
 import com.crownedpixel.vault.data.VaultStore
 import com.crownedpixel.vault.data.Versions
 import com.crownedpixel.vault.install.InstalledApps
@@ -52,13 +54,27 @@ class UpdateCheckWorker(
             }.getOrNull() ?: return@map repo
 
             val installed = InstalledApps.installedVersion(applicationContext, repo.packageName)
-            val hasUpdate = installed != null && Versions.isNewer(newest.version, installed)
-            if (hasUpdate && preferences.notifyOnRelease && store.notifiedTag(repo.slug) != newest.tag) {
-                notify(repo.displayName, newest.tag, repo.slug)
-                store.markNotified(repo.slug, newest.tag)
+            val installedAt = InstalledApps.lastUpdateTime(applicationContext, repo.packageName)
+            val hasUpdate = UpdateCheck.isNewer(
+                latestVersion = newest.version,
+                latestMillis = Dates.epochMillis(newest.timestamp),
+                installedVersion = installed,
+                installedMillis = installedAt,
+            )
+            // A rolling tag never changes, so the announcement is keyed on the build it points at.
+            val marker = "${newest.tag}@${newest.timestamp}"
+            if (hasUpdate && preferences.notifyOnRelease && store.notifiedTag(repo.slug) != marker) {
+                notify(repo.displayName, Versions.label(newest.version), repo.slug)
+                store.markNotified(repo.slug, marker)
             }
-            if (repo.latestTag != newest.tag) updated = true
-            repo.copy(latestTag = newest.tag, latestPublishedAt = newest.publishedAt)
+            if (repo.latestVersion != newest.version || repo.latestPublishedAt != newest.timestamp) {
+                updated = true
+            }
+            repo.copy(
+                latestTag = newest.tag,
+                latestVersion = newest.version,
+                latestPublishedAt = newest.timestamp,
+            )
         }
         if (updated) store.writeRepos(fresh)
         return Result.success()

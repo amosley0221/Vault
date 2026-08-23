@@ -23,6 +23,8 @@ data class ReleaseAsset(
     val browserDownloadUrl: String,
     val apiUrl: String,
     val size: Long,
+    /** When the file itself was last uploaded — the only thing that moves on a rolling tag. */
+    val updatedAt: String = "",
 ) {
     val isApk: Boolean get() = name.endsWith(".apk", ignoreCase = true)
 }
@@ -37,7 +39,26 @@ data class ReleaseInfo(
     val assets: List<ReleaseAsset>,
 ) {
     val apkAssets: List<ReleaseAsset> get() = assets.filter { it.isApk }
-    val version: String get() = Versions.normalize(tag.ifBlank { name })
+
+    /**
+     * Plenty of repositories publish under a rolling tag — `latest`, `apk-latest`,
+     * `android-latest` — which carries no version at all. Look through the tag, then the release
+     * title, then the APK filename before giving up.
+     */
+    val resolvedVersion: String?
+        get() = Versions.extract(tag)
+            ?: Versions.extract(name)
+            ?: apkAssets.firstNotNullOfOrNull { Versions.extract(it.name) }
+
+    /** When the APK was last uploaded, which on a rolling tag outruns the release date. */
+    val timestamp: String
+        get() = (apkAssets.map { it.updatedAt } + publishedAt)
+            .filter { it.isNotBlank() }
+            .maxByOrNull { Dates.epochMillis(it) ?: 0L }
+            ?: publishedAt
+
+    /** What the interface shows: a real version when there is one, otherwise the build date. */
+    val version: String get() = resolvedVersion ?: Dates.day(timestamp)
 
     /** Release-note bullets, one per meaningful markdown line. */
     fun noteLines(limit: Int = 6): List<String> = body
@@ -58,6 +79,7 @@ data class TrackedRepo(
     val packageName: String? = null,
     val source: AppSource = AppSource.RELEASES,
     val latestTag: String? = null,
+    val latestVersion: String? = null,
     val latestPublishedAt: String? = null,
     val addedAt: Long = 0L,
     /** Version last installed through Vault; a fallback when the package is not visible. */
@@ -106,10 +128,10 @@ data class LibraryApp(
 
     val versionLine: String
         get() = when (status) {
-            AppStatus.NOT_INSTALLED -> latestVersion?.let { "v$it" } ?: "—"
+            AppStatus.NOT_INSTALLED -> Versions.label(latestVersion)
             AppStatus.UPDATE, AppStatus.UPDATING ->
                 "${installedVersion ?: "—"} → ${latestVersion ?: "—"}"
-            AppStatus.CURRENT -> installedVersion?.let { "v$it" } ?: "—"
+            AppStatus.CURRENT -> Versions.label(installedVersion)
         }
 
     val badge: String
@@ -138,14 +160,42 @@ data class GitHubAccount(
 
 /** Version comparison over the loose tags found in the wild: v1.2.3, 1.2.3-beta.1, 2024.08.01. */
 object Versions {
+
+    private val SEMVER = Regex("\\d+(?:\\.\\d+)+(?:[-+][A-Za-z0-9.]+)?")
+    private val DATE = Regex("\\d{4}-\\d{2}-\\d{2}")
+    private val NUMBER = Regex("\\d+(?:[-+.][A-Za-z0-9.]+)?")
+
+    /**
+     * Digs a version out of a tag, a release title, or an APK filename. Returns null when the text
+     * carries no version at all, which is what separates `v1.4.2` from `android-latest`.
+     */
+    fun extract(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val cleaned = raw.trim()
+            .removePrefix("refs/tags/")
+            .removeSuffix(".apk")
+            .removeSuffix(".aab")
+        DATE.find(cleaned)?.let { return it.value }
+        SEMVER.find(cleaned)?.let { return it.value }
+        return NUMBER.find(cleaned)?.value
+    }
+
+    fun hasDigits(value: String?): Boolean = value?.any { it.isDigit() } == true
+
+    fun isDate(value: String?): Boolean = value != null && DATE.matches(value)
+
+    /** "v1.4.2", but "2026-08-23" for a date and the bare text for anything else. */
+    fun label(version: String?): String = when {
+        version.isNullOrBlank() -> "\u2014"
+        isDate(version) -> version
+        version.first().isDigit() -> "v$version"
+        else -> version
+    }
+
     fun normalize(raw: String?): String {
         if (raw.isNullOrBlank()) return ""
-        var value = raw.trim()
-        value = value.removePrefix("refs/tags/")
-        value = value.trimStart('v', 'V')
-        // Tags such as "release-1.4.0" or "app-v2.1".
-        val match = Regex("\\d+(\\.\\d+)*([\\-+._][A-Za-z0-9.\\-]+)?").find(value)
-        return match?.value ?: value
+        val value = raw.trim().removePrefix("refs/tags/").trimStart('v', 'V')
+        return extract(value) ?: value
     }
 
     fun compare(left: String?, right: String?): Int {
@@ -170,4 +220,29 @@ object Versions {
     }
 
     fun isNewer(candidate: String?, installed: String?): Boolean = compare(candidate, installed) > 0
+}
+
+/**
+ * Whether a release is newer than what sits on the device. Version numbers decide it when both
+ * sides have one of the same kind; a repository that publishes under a rolling tag has no version
+ * to compare, so the upload time of the APK asset decides instead.
+ */
+object UpdateCheck {
+
+    private const val TOLERANCE_MS = 5 * 60 * 1000L
+
+    fun isNewer(
+        latestVersion: String?,
+        latestMillis: Long?,
+        installedVersion: String?,
+        installedMillis: Long?,
+    ): Boolean {
+        if (installedVersion == null || latestVersion == null) return false
+        val comparable = Versions.hasDigits(latestVersion) &&
+            Versions.hasDigits(installedVersion) &&
+            Versions.isDate(latestVersion) == Versions.isDate(installedVersion)
+        if (comparable) return Versions.isNewer(latestVersion, installedVersion)
+        if (latestMillis == null || installedMillis == null) return false
+        return latestMillis > installedMillis + TOLERANCE_MS
+    }
 }

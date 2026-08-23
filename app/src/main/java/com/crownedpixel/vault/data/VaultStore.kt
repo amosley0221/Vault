@@ -34,6 +34,7 @@ class VaultStore(context: Context) {
                     packageName = json.text("packageName").takeIf { it.isNotBlank() },
                     source = AppSource.from(json.text("source")),
                     latestTag = json.text("latestTag").takeIf { it.isNotBlank() },
+                    latestVersion = json.text("latestVersion").takeIf { it.isNotBlank() },
                     latestPublishedAt = json.text("latestPublishedAt").takeIf { it.isNotBlank() },
                     addedAt = json.optLong("addedAt"),
                     installedTag = json.text("installedTag").takeIf { it.isNotBlank() },
@@ -54,6 +55,7 @@ class VaultStore(context: Context) {
                     .put("packageName", repo.packageName)
                     .put("source", repo.source.name)
                     .put("latestTag", repo.latestTag)
+                    .put("latestVersion", repo.latestVersion)
                     .put("latestPublishedAt", repo.latestPublishedAt)
                     .put("addedAt", repo.addedAt)
                     .put("installedTag", repo.installedTag),

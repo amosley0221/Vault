@@ -1,6 +1,7 @@
 package com.crownedpixel.vault.install
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
@@ -21,6 +22,51 @@ object InstalledApps {
 
     fun installedVersion(context: Context, packageName: String?): String? =
         packageInfo(context, packageName)?.versionName
+
+    /**
+     * When the package was last installed or updated. For repositories that publish under a
+     * rolling tag this is the only thing an update can be measured against.
+     */
+    fun lastUpdateTime(context: Context, packageName: String?): Long? =
+        packageInfo(context, packageName)?.lastUpdateTime
+
+    /** One entry per user-installed package: enough to match a repository against. */
+    data class InstalledEntry(val packageName: String, val segment: String, val label: String)
+
+    /** A single sweep of the package manager, since the sweep is the expensive part. */
+    fun installedIndex(context: Context): List<InstalledEntry> {
+        val manager = context.packageManager
+        return runCatching { manager.getInstalledPackages(0) }.getOrNull().orEmpty()
+            .mapNotNull { info ->
+                val application = info.applicationInfo ?: return@mapNotNull null
+                if ((application.flags and ApplicationInfo.FLAG_SYSTEM) != 0) return@mapNotNull null
+                InstalledEntry(
+                    packageName = info.packageName,
+                    segment = simplify(info.packageName.substringAfterLast('.')),
+                    label = simplify(
+                        runCatching { manager.getApplicationLabel(application).toString() }
+                            .getOrDefault(""),
+                    ),
+                )
+            }
+    }
+
+    /**
+     * Finds the package a tracked repository probably installed, for apps that arrived on the
+     * device some other way — sideloaded by hand, or installed before the repository was tracked.
+     * Deliberately strict: the launcher label or the last segment of the package has to match the
+     * repository name outright, so an unrelated app is never adopted.
+     */
+    fun match(index: List<InstalledEntry>, repo: String, displayName: String): String? {
+        val wanted = setOf(simplify(repo), simplify(displayName)).filter { it.isNotEmpty() }
+        if (wanted.isEmpty()) return null
+        return index.firstOrNull { entry ->
+            entry.segment in wanted || (entry.label.isNotEmpty() && entry.label in wanted)
+        }?.packageName
+    }
+
+    private fun simplify(value: String): String =
+        value.lowercase().filter { it.isLetterOrDigit() }
 
     fun isInstalled(context: Context, packageName: String?): Boolean =
         packageInfo(context, packageName) != null

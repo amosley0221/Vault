@@ -49,6 +49,7 @@ object GitHubApi {
                 browserDownloadUrl = asset.text("browser_download_url"),
                 apiUrl = asset.text("url"),
                 size = asset.optLong("size"),
+                updatedAt = asset.text("updated_at").ifBlank { asset.text("created_at") },
             )
         }
         return ReleaseInfo(
