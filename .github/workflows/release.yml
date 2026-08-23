@@ -102,11 +102,11 @@ jobs:
 
           Download **vault.apk** below and open it on the device. Android asks for permission to install unknown apps the first time."
           if gh release view latest > /dev/null 2>&1; then
-            gh release edit latest --notes "$NOTES" --target "$GITHUB_SHA" --title "Vault — latest build"
+            gh release edit latest --notes "$NOTES" --target "$GITHUB_SHA" --title "Vault ${VAULT_VERSION_NAME}"
             gh release upload latest dist/vault.apk dist/vault.apk.sha256 --clobber
           else
             gh release create latest dist/vault.apk dist/vault.apk.sha256 \
-              --title "Vault — latest build" \
+              --title "Vault ${VAULT_VERSION_NAME}" \
               --target "$GITHUB_SHA" \
               --prerelease \
               --notes "$NOTES"

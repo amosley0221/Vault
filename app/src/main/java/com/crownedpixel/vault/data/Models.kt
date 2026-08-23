@@ -213,6 +213,12 @@ object Versions {
             val y = bParts.getOrElse(i) { 0 }
             if (x != y) return x.compareTo(y)
         }
+        // Build metadata such as the +7 in 0.1.0+7 counts upward, and 10 beats 9 numerically
+        // however it sorts as text.
+        val aBuild = a.substringAfter('+', "").toIntOrNull()
+        val bBuild = b.substringAfter('+', "").toIntOrNull()
+        if (aBuild != null && bBuild != null && aBuild != bBuild) return aBuild.compareTo(bBuild)
+
         val aPre = a.contains('-')
         val bPre = b.contains('-')
         if (aPre != bPre) return if (aPre) -1 else 1
