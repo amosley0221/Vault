@@ -116,15 +116,20 @@ object ApkInstaller {
     }
 
     /**
-     * Hands the APK to the platform installer. The system shows its own confirmation prompt;
-     * the outcome arrives on [InstallEvents].
+     * Hands the APK to the platform installer. The system asks the user to confirm unless this is
+     * an update to an app Vault itself installed on Android 12 or later; either way the outcome
+     * arrives on [InstallEvents].
      */
     suspend fun install(context: Context, apk: File, packageName: String?) = withContext(Dispatchers.IO) {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         packageName?.let { params.setAppPackageName(it) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_UNSPECIFIED)
+            // Android 12 and up will skip its own "Update this app?" prompt when the app being
+            // updated was installed by us in the first place. Where the conditions are not met —
+            // a first install, or an app that arrived some other way — the system quietly falls
+            // back to asking, so this only ever removes a prompt that was not needed.
+            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
         }
         val sessionId = installer.createSession(params)
         installer.openSession(sessionId).use { session ->

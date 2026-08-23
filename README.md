@@ -51,9 +51,15 @@ Under the hood:
 - **Releases** — `GET /repos/{owner}/{repo}/releases`; a repository is installable when a release
   asset ends in `.apk`. Assets are matched against the device ABI, falling back to a universal one.
 - **Versions** — the release tag is compared against the installed `PackageInfo.versionName`.
-- **Install** — the `PackageInstaller` session API. Before committing a session Vault compares the
-  APK's signing certificate with the installed app's; a mismatch stops the install rather than
-  letting the system fail it halfway.
+- **Install** — the `PackageInstaller` session API, one session at a time: the platform installer
+  takes over the screen for its confirmation, and while it is up Android bars Vault from launching
+  the next one. Before committing a session Vault compares the APK's signing certificate with the
+  installed app's; a mismatch stops the install rather than letting the system fail it halfway.
+- **Silent updates** — sessions ask for `USER_ACTION_NOT_REQUIRED`, so on Android 12+ an update to
+  an app Vault installed itself applies without a confirmation prompt. A first install still asks,
+  because the system only skips the prompt for the installer of record. Google Play Protect is a
+  separate matter: it can still warn or block on its own, and neither Vault nor any other installer
+  can suppress that.
 - **Auth** — GitHub's device-authorization flow when the build carries an OAuth client id (see
   below), otherwise a personal access token you paste in. Either way the token is encrypted with an
   AES-GCM key generated in the Android keystore, and app backup is disabled.

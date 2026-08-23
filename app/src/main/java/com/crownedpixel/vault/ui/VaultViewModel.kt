@@ -470,7 +470,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                 persist()
                 pendingInstalls[packageName] = slug
 
-                setProgress(slug, 0.96f, "Awaiting confirmation")
+                setProgress(slug, 0.96f, "Installing")
                 ApkInstaller.install(context, file, packageName)
             } catch (error: Exception) {
                 downloaded?.delete()
