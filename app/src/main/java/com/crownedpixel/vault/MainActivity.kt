@@ -30,6 +30,12 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult(),
     ) { /* The install permission is re-read the next time an install starts. */ }
 
+    private var model: VaultViewModel? = null
+
+    private val pickImport = registerForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let { model?.importLibrary(it) } }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -44,6 +50,7 @@ class MainActivity : ComponentActivity() {
             }
 
             LaunchedEffect(model) {
+                this@MainActivity.model = model
                 model.events.collect { event -> handle(event) }
             }
 
@@ -62,6 +69,9 @@ class MainActivity : ComponentActivity() {
 
             VaultEvent.RequestInstallPermission ->
                 openSettings.launch(ApkInstaller.unknownSourcesSettingsIntent(this))
+
+            VaultEvent.PickImportFile ->
+                pickImport.launch(arrayOf("application/json", "text/plain", "*/*"))
         }
     }
 

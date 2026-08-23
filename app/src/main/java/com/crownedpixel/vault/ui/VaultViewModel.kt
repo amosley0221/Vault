@@ -2,6 +2,7 @@ package com.crownedpixel.vault.ui
 
 import android.app.Application
 import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.crownedpixel.vault.BuildConfig
@@ -10,6 +11,7 @@ import com.crownedpixel.vault.data.AppStatus
 import com.crownedpixel.vault.data.Dates
 import com.crownedpixel.vault.data.GitHubApi
 import com.crownedpixel.vault.data.LibraryApp
+import com.crownedpixel.vault.data.LibraryTransfer
 import com.crownedpixel.vault.data.Preferences
 import com.crownedpixel.vault.data.ReleaseAsset
 import com.crownedpixel.vault.data.ReleaseInfo
@@ -108,6 +110,8 @@ data class VaultUiState(
     val wrap: WrapState = WrapState(),
     val build: BuildState = BuildState(),
     val picker: PickerState? = null,
+    val exportWithToken: Boolean = false,
+    val transferBusy: Boolean = false,
 ) {
     val detail: LibraryApp? get() = apps.firstOrNull { it.id == selected } ?: apps.firstOrNull()
 
@@ -133,6 +137,7 @@ sealed interface VaultEvent {
     data class OpenUrl(val url: String) : VaultEvent
     data class Launch(val intent: Intent) : VaultEvent
     data object RequestInstallPermission : VaultEvent
+    data object PickImportFile : VaultEvent
 }
 
 class VaultViewModel(application: Application) : AndroidViewModel(application) {
@@ -812,6 +817,103 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         _state.value = _state.value.copy(preferences = preferences)
         UpdateScheduler.schedule(context, preferences)
         rebuild()
+    }
+
+    // ---------------------------------------------------------------- moving to another device
+
+    fun setExportWithToken(include: Boolean) {
+        _state.value = _state.value.copy(exportWithToken = include)
+    }
+
+    /**
+     * Writes the library to a file and hands it to the share sheet. The token rides along only
+     * when the user has ticked that box, because whoever holds the file then holds the credential.
+     */
+    fun exportLibrary() {
+        if (_state.value.transferBusy) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(transferBusy = true)
+            try {
+                val includeToken = _state.value.exportWithToken
+                val contents = LibraryTransfer.encode(
+                    repositories = repos,
+                    preferences = _state.value.preferences,
+                    token = if (includeToken) token() else null,
+                )
+                val intent = LibraryTransfer.share(context, contents)
+                events.emit(VaultEvent.Launch(intent))
+                notice(
+                    if (includeToken) {
+                        "Export includes your GitHub token — send it somewhere private, and delete it afterwards."
+                    } else {
+                        "Export written. The other device will ask for a token of its own."
+                    },
+                )
+            } catch (error: Exception) {
+                notice(error.message ?: "The library could not be exported.")
+            } finally {
+                _state.value = _state.value.copy(transferBusy = false)
+            }
+        }
+    }
+
+    fun beginImport() {
+        viewModelScope.launch { events.emit(VaultEvent.PickImportFile) }
+    }
+
+    /** Merges an exported library into this device, keeping anything already tracked. */
+    fun importLibrary(uri: Uri) {
+        if (_state.value.transferBusy) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(transferBusy = true)
+            try {
+                val bundle = LibraryTransfer.decode(LibraryTransfer.read(context, uri))
+                val known = repos.map { it.slug.lowercase() }.toSet()
+                val fresh = bundle.repositories.filterNot { it.slug.lowercase() in known }
+                repos = adoptInstalledPackages(repos + fresh)
+                persist()
+
+                bundle.preferences?.let { imported ->
+                    val merged = imported.copy(onboarded = true)
+                    store.writePreferences(merged)
+                    _state.value = _state.value.copy(preferences = merged)
+                    UpdateScheduler.schedule(context, merged)
+                }
+
+                var signedIn = _state.value.signedIn
+                var login = _state.value.login
+                bundle.token?.let { imported ->
+                    val account = runCatching { GitHubApi.currentUser(imported) }.getOrNull()
+                    if (account == null) {
+                        notice("The token in that export was rejected by GitHub — sign in on this device.")
+                    } else {
+                        tokens.writeToken(imported)
+                        tokens.login = account.login
+                        signedIn = true
+                        login = account.login
+                    }
+                }
+
+                _state.value = _state.value.copy(
+                    screen = Screen.LIBRARY,
+                    signedIn = signedIn,
+                    login = login,
+                )
+                rebuild()
+                notice(
+                    when {
+                        fresh.isEmpty() -> "Nothing new — every repository in that export is already tracked."
+                        fresh.size == 1 -> "Added 1 repository from the export."
+                        else -> "Added ${fresh.size} repositories from the export."
+                    },
+                )
+                refresh()
+            } catch (error: Exception) {
+                notice(error.message ?: "That export could not be read.")
+            } finally {
+                _state.value = _state.value.copy(transferBusy = false)
+            }
+        }
     }
 
     // ---------------------------------------------------------------- wrap a website

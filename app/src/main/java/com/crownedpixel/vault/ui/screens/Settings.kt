@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.crownedpixel.vault.BuildConfig
+import com.crownedpixel.vault.ui.GoldButton
 import com.crownedpixel.vault.ui.Hairline
 import com.crownedpixel.vault.ui.Monogram
 import com.crownedpixel.vault.ui.SectionLabel
@@ -125,6 +126,45 @@ fun SettingsScreen(state: VaultUiState, model: VaultViewModel) {
             checked = preferences.notifyOnRelease,
             onToggle = model::toggleNotify,
         )
+
+        SectionLabel(
+            text = "Another device",
+            modifier = Modifier.padding(top = 24.dp, bottom = 12.dp),
+        )
+        BasicText(
+            text = "Vault keeps nothing in the cloud, so a second device is set up from a file you " +
+                "export here and open there. Tracked repositories and preferences always travel; " +
+                "the GitHub token only when you say so.",
+            style = jost(12, FontWeight.W300, VaultColors.Stone, lineHeight = 1.6.em),
+            modifier = Modifier.padding(bottom = 4.dp),
+        )
+        PreferenceRow(
+            label = "Include sign-in token",
+            sub = "Anyone holding the file can then act as you on GitHub",
+            checked = state.exportWithToken,
+            onToggle = { model.setExportWithToken(!state.exportWithToken) },
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            GoldButton(
+                text = if (state.transferBusy) "Working…" else "Export library",
+                modifier = Modifier.weight(1f),
+                enabled = !state.transferBusy,
+                labelSize = 10,
+                horizontalPadding = 8.dp,
+            ) { model.exportLibrary() }
+            GoldButton(
+                text = "Import library",
+                modifier = Modifier.weight(1f),
+                enabled = !state.transferBusy,
+                labelSize = 10,
+                horizontalPadding = 8.dp,
+            ) { model.beginImport() }
+        }
 
         Hairline(modifier = Modifier.padding(top = 24.dp))
         BasicText(

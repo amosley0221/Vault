@@ -2,7 +2,6 @@ package com.crownedpixel.vault.data
 
 import android.content.Context
 import org.json.JSONArray
-import org.json.JSONObject
 
 data class Preferences(
     val includePrereleases: Boolean = false,
@@ -24,43 +23,13 @@ class VaultStore(context: Context) {
         val raw = prefs.getString(KEY_REPOS, null) ?: return emptyList()
         return runCatching {
             val array = JSONArray(raw)
-            (0 until array.length()).map { index ->
-                val json = array.getJSONObject(index)
-                TrackedRepo(
-                    owner = json.getString("owner"),
-                    repo = json.getString("repo"),
-                    displayName = json.text("displayName").ifBlank { json.getString("repo") },
-                    description = json.text("description"),
-                    packageName = json.text("packageName").takeIf { it.isNotBlank() },
-                    source = AppSource.from(json.text("source")),
-                    latestTag = json.text("latestTag").takeIf { it.isNotBlank() },
-                    latestVersion = json.text("latestVersion").takeIf { it.isNotBlank() },
-                    latestPublishedAt = json.text("latestPublishedAt").takeIf { it.isNotBlank() },
-                    addedAt = json.optLong("addedAt"),
-                    installedTag = json.text("installedTag").takeIf { it.isNotBlank() },
-                )
-            }
+            (0 until array.length()).mapNotNull { index -> trackedRepoFrom(array.getJSONObject(index)) }
         }.getOrDefault(emptyList())
     }
 
     fun writeRepos(repos: List<TrackedRepo>) {
         val array = JSONArray()
-        repos.forEach { repo ->
-            array.put(
-                JSONObject()
-                    .put("owner", repo.owner)
-                    .put("repo", repo.repo)
-                    .put("displayName", repo.displayName)
-                    .put("description", repo.description)
-                    .put("packageName", repo.packageName)
-                    .put("source", repo.source.name)
-                    .put("latestTag", repo.latestTag)
-                    .put("latestVersion", repo.latestVersion)
-                    .put("latestPublishedAt", repo.latestPublishedAt)
-                    .put("addedAt", repo.addedAt)
-                    .put("installedTag", repo.installedTag),
-            )
-        }
+        repos.forEach { array.put(it.toJson()) }
         prefs.edit().putString(KEY_REPOS, array.toString()).apply()
     }
 

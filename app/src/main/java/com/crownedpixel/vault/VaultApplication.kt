@@ -3,6 +3,7 @@ package com.crownedpixel.vault
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import com.crownedpixel.vault.data.LibraryTransfer
 import com.crownedpixel.vault.data.VaultStore
 import com.crownedpixel.vault.work.UpdateScheduler
 
@@ -21,5 +22,7 @@ class VaultApplication : Application() {
             },
         )
         UpdateScheduler.schedule(this, VaultStore(this).readPreferences())
+        // An export may hold a GitHub token; it has served its purpose once it has been sent.
+        LibraryTransfer.clearExports(this)
     }
 }

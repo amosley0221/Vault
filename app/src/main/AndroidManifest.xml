@@ -41,5 +41,16 @@
         <receiver
             android:name=".install.InstallResultReceiver"
             android:exported="false" />
+
+        <!-- Hands an exported library to the share sheet without exposing the cache directory. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

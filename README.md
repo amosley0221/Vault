@@ -76,6 +76,21 @@ Both keep their signing key in `.vault/` inside the target repository so later b
 upgrade-compatible on the device, and both defer to `VAULT_KEYSTORE_*` repository secrets when you
 set them. Committing a workflow needs `workflow` scope on your token.
 
+## Moving to a second device
+
+Vault stores nothing in the cloud and its token is encrypted with a key that never leaves the
+phone, so a second device is set up from a file rather than a sync service. Settings → **Another
+device** → EXPORT LIBRARY writes the tracked repositories and preferences to a JSON file and hands
+it to the share sheet — Nearby Share, Drive, a private chat, whatever you like. On the other device,
+IMPORT LIBRARY reads it back, merging into anything already tracked.
+
+The GitHub token travels only when "Include sign-in token" is on, and the export then holds a
+credential with write access to your repositories: send it somewhere private and delete it
+afterwards. Vault clears its own export cache on every launch. With the box off, the file carries
+repositories only and the second device asks for a token of its own — worth remembering that GitHub
+shows a personal access token exactly once, so a token you did not save cannot be recovered, only
+replaced.
+
 ## Building it yourself
 
 ```sh
