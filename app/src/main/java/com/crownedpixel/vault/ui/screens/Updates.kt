@@ -96,6 +96,7 @@ fun UpdatesScreen(state: VaultUiState, model: VaultViewModel) {
 @Composable
 private fun UpdateCard(app: LibraryApp, onOpen: () -> Unit, onUpdate: () -> Unit) {
     val updating = app.status == AppStatus.UPDATING
+    val queued = updating && app.progressStage == "Queued"
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -122,8 +123,8 @@ private fun UpdateCard(app: LibraryApp, onOpen: () -> Unit, onUpdate: () -> Unit
             }
             if (updating) {
                 SectionLabel(
-                    text = "${(app.progress * 100).toInt()}%",
-                    color = VaultColors.Gold,
+                    text = if (queued) "Queued" else "${(app.progress * 100).toInt()}%",
+                    color = if (queued) VaultColors.Stone else VaultColors.Gold,
                     size = 9,
                 )
             } else {
@@ -136,7 +137,7 @@ private fun UpdateCard(app: LibraryApp, onOpen: () -> Unit, onUpdate: () -> Unit
                 )
             }
         }
-        if (updating) {
+        if (updating && !queued) {
             ProgressTrack(
                 fraction = app.progress,
                 modifier = Modifier.padding(top = 12.dp),

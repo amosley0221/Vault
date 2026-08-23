@@ -58,6 +58,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Returning here means the installer's confirmation is gone: settle it and move the queue on.
+        model?.onResumed()
+    }
+
     private fun handle(event: VaultEvent) {
         when (event) {
             is VaultEvent.OpenUrl -> startActivity(

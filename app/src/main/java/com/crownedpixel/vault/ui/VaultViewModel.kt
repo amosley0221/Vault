@@ -157,6 +157,8 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     private val releases = mutableMapOf<String, List<ReleaseInfo>>()
     private val progress = mutableMapOf<String, Pair<Float, String>>()
     private val installing = mutableSetOf<String>()
+    private val installQueue = ArrayDeque<String>()
+    private var activeInstall: String? = null
     private val pendingInstalls = mutableMapOf<String, String>() // package name -> slug
     private var deviceCode: GitHubApi.DeviceCode? = null
     private var lastRefreshAt = 0L
@@ -372,7 +374,13 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         _state.value.apps.filter { it.status == AppStatus.UPDATE }.forEach { install(it.id) }
     }
 
-    /** Downloads the newest APK asset, checks it, and hands it to the platform installer. */
+    /**
+     * Queues an update. Installs run strictly one at a time: the platform installer shows its
+     * confirmation in its own activity, and once that is in front, Android blocks Vault — now a
+     * background app — from launching the confirmation for a second session. Committing several
+     * at once therefore leaves every session after the first waiting for a prompt that never
+     * appears.
+     */
     fun install(slug: String) {
         if (!installing.add(slug)) return
         if (!ApkInstaller.canInstall(context)) {
@@ -381,10 +389,36 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
             notice("Allow Vault to install unknown apps, then try again.")
             return
         }
+        installQueue.addLast(slug)
+        setProgress(slug, 0f, QUEUED)
+        pumpInstalls()
+    }
+
+    private fun pumpInstalls() {
+        if (activeInstall != null) return
+        val next = installQueue.removeFirstOrNull() ?: return
+        activeInstall = next
+        runInstall(next)
+    }
+
+    /** Clears an install that has reached its end, and lets the queue move on. */
+    private fun finishInstall(slug: String, message: String? = null) {
+        installing.remove(slug)
+        installQueue.remove(slug)
+        progress.remove(slug)
+        if (activeInstall == slug) activeInstall = null
+        pendingInstalls.entries.removeAll { it.value == slug }
+        rebuild()
+        message?.let { notice(it) }
+        pumpInstalls()
+    }
+
+    private fun runInstall(slug: String) {
         viewModelScope.launch {
             var downloaded: File? = null
             try {
-                val repo = repos.firstOrNull { it.slug == slug } ?: return@launch
+                val repo = repos.firstOrNull { it.slug == slug }
+                    ?: throw IOException("That repository is no longer tracked.")
                 setProgress(slug, 0f, "Downloading APK")
                 val token = token()
                 val release = releases[repo.slug]?.firstOrNull { candidate ->
@@ -436,15 +470,27 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                 persist()
                 pendingInstalls[packageName] = slug
 
-                setProgress(slug, 0.96f, "Verifying signature")
+                setProgress(slug, 0.96f, "Awaiting confirmation")
                 ApkInstaller.install(context, file, packageName)
             } catch (error: Exception) {
-                installing.remove(slug)
-                progress.remove(slug)
                 downloaded?.delete()
-                rebuild()
-                notice(error.message ?: "The install could not be started.")
+                finishInstall(slug, error.message ?: "The install could not be started.")
             }
+        }
+    }
+
+    /**
+     * The confirmation dialog belongs to another process, so Vault is paused while it is up.
+     * Coming back means it has been dealt with one way or another; if no result reached us, the
+     * queue would otherwise stall behind it forever.
+     */
+    fun onResumed() {
+        rebuild()
+        viewModelScope.launch {
+            delay(RESUME_GRACE_MS)
+            val slug = activeInstall ?: return@launch
+            val committed = (progress[slug]?.first ?: 0f) >= 0.95f
+            if (committed) finishInstall(slug)
         }
     }
 
@@ -469,11 +515,8 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     private fun observeInstallResults() {
         viewModelScope.launch {
             InstallEvents.results.collect { result ->
-                val slug = result.packageName?.let { pendingInstalls.remove(it) }
-                    ?: installing.firstOrNull()
+                val slug = result.packageName?.let { pendingInstalls[it] } ?: activeInstall
                 if (slug != null) {
-                    installing.remove(slug)
-                    progress.remove(slug)
                     if (result.success) {
                         repos = repos.map { repo ->
                             if (repo.slug == slug && repo.packageName == null) {
@@ -484,9 +527,11 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                         }
                         persist()
                     }
+                    finishInstall(slug, result.message.takeIf { !result.success })
+                } else {
+                    rebuild()
+                    if (!result.success) notice(result.message)
                 }
-                rebuild()
-                if (!result.success) notice(result.message)
             }
         }
     }
@@ -1211,6 +1256,8 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     private companion object {
         const val DEVICE_SCOPES = "repo workflow"
         const val STALE_AFTER_MS = 60 * 1000L
+        const val RESUME_GRACE_MS = 1_500L
+        const val QUEUED = "Queued"
         const val WORKFLOW_TIMEOUT_MS = 15 * 60 * 1000L
         const val RELEASE_TIMEOUT_MS = 3 * 60 * 1000L
     }
