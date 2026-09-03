@@ -207,12 +207,18 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                 installedVersion = installedVersion,
                 latestVersion = latestVersion,
                 publishedLabel = Dates.short(newest?.timestamp ?: repo.latestPublishedAt),
+                updatedAtMillis = latestMillis,
                 status = status,
                 progress = inFlight?.first ?: 0f,
                 progressStage = inFlight?.second.orEmpty(),
                 releases = cached,
             )
-        }
+        }.sortedWith(
+            // Most recently released first; anything with no release yet falls to the bottom,
+            // where alphabetical order at least keeps it predictable.
+            compareByDescending<LibraryApp> { it.updatedAtMillis ?: Long.MIN_VALUE }
+                .thenBy { it.name.lowercase() },
+        )
         _state.value = mutate(_state.value.copy(apps = apps))
     }
 

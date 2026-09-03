@@ -116,6 +116,8 @@ data class LibraryApp(
     val installedVersion: String?,
     val latestVersion: String?,
     val publishedLabel: String,
+    /** When the newest release's APK landed — what the library is ordered by. */
+    val updatedAtMillis: Long?,
     val status: AppStatus,
     val progress: Float = 0f,
     val progressStage: String = "",
