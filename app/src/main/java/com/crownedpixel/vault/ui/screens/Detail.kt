@@ -36,7 +36,12 @@ import com.crownedpixel.vault.ui.jost
 import com.crownedpixel.vault.ui.press
 
 @Composable
-fun AppDetailScreen(state: VaultUiState, model: VaultViewModel) {
+fun AppDetailScreen(
+    state: VaultUiState,
+    model: VaultViewModel,
+    /** False in the two-pane layout, where the list is already on screen. */
+    showBackLink: Boolean = true,
+) {
     val app = state.detail ?: return
     Column(
         modifier = Modifier
@@ -44,12 +49,14 @@ fun AppDetailScreen(state: VaultUiState, model: VaultViewModel) {
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
     ) {
-        SectionLabel(
-            text = if (state.detailOrigin == Screen.UPDATES) "← Updates" else "← Library",
-            modifier = Modifier
-                .press { model.goTo(state.detailOrigin) }
-                .padding(bottom = 18.dp),
-        )
+        if (showBackLink) {
+            SectionLabel(
+                text = if (state.detailOrigin == Screen.UPDATES) "← Updates" else "← Library",
+                modifier = Modifier
+                    .press { model.goTo(state.detailOrigin) }
+                    .padding(bottom = 18.dp),
+            )
+        }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Monogram(letter = app.initial, size = 56.dp, textSize = 24)

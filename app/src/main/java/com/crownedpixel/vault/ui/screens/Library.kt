@@ -1,5 +1,6 @@
 package com.crownedpixel.vault.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,7 +34,12 @@ import com.crownedpixel.vault.ui.jost
 import com.crownedpixel.vault.ui.press
 
 @Composable
-fun LibraryScreen(state: VaultUiState, model: VaultViewModel) {
+fun LibraryScreen(
+    state: VaultUiState,
+    model: VaultViewModel,
+    /** Marked in the list when a detail pane beside it is showing that app. */
+    selectedId: String? = null,
+) {
     if (state.apps.isEmpty()) {
         EmptyLibrary(state, model)
         return
@@ -49,7 +55,7 @@ fun LibraryScreen(state: VaultUiState, model: VaultViewModel) {
                 .fillMaxWidth(),
         ) {
             items(state.apps, key = { it.id }) { app ->
-                LibraryRow(app) { model.openDetail(app.id) }
+                LibraryRow(app, selected = app.id == selectedId) { model.openDetail(app.id) }
                 Hairline(color = VaultColors.Separator)
             }
             item {
@@ -63,15 +69,21 @@ fun LibraryScreen(state: VaultUiState, model: VaultViewModel) {
 }
 
 @Composable
-private fun LibraryRow(app: LibraryApp, onClick: () -> Unit) {
+private fun LibraryRow(app: LibraryApp, selected: Boolean = false, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .press(onClick = onClick)
+            .background(if (selected) VaultColors.Graphite else VaultColors.Onyx)
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Monogram(letter = app.initial, size = 42.dp, textSize = 18)
+        Monogram(
+            letter = app.initial,
+            size = 42.dp,
+            textSize = 18,
+            borderColor = if (selected) VaultColors.Gold else VaultColors.Hairline,
+        )
         Column(
             modifier = Modifier
                 .weight(1f)

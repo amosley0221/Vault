@@ -4,9 +4,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,12 +16,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.crownedpixel.vault.ui.screens.ActionsBuildScreen
 import com.crownedpixel.vault.ui.screens.AddRepositoryScreen
@@ -70,28 +75,83 @@ fun VaultApp(state: VaultUiState, model: VaultViewModel) {
 
 @Composable
 private fun ColumnScope.InApp(state: VaultUiState, model: VaultViewModel) {
-    AppBar(state.headerLabel)
-    Hairline()
+    BoxWithConstraints(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth(),
+    ) {
+        // A width test rather than a device test: the same layout serves an unfolded foldable, a
+        // tablet, and any phone held in landscape, and folds back on the cover screen.
+        val wide = maxWidth >= WIDE_BREAKPOINT
+        val listAndDetail = state.screen == Screen.LIBRARY || state.screen == Screen.DETAIL
 
-    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-        when (state.screen) {
-            Screen.LIBRARY -> LibraryScreen(state, model)
-            Screen.DETAIL -> AppDetailScreen(state, model)
-            Screen.UPDATES -> UpdatesScreen(state, model)
-            Screen.ADD -> AddRepositoryScreen(state, model)
-            Screen.WRAP -> WrapWebsiteScreen(state, model)
-            Screen.BUILD -> ActionsBuildScreen(state, model)
-            Screen.SETTINGS -> SettingsScreen(state, model)
-            else -> Unit
+        Column(modifier = Modifier.fillMaxSize()) {
+            AppBar(if (wide && listAndDetail) "Library" else state.headerLabel)
+            Hairline()
+
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (wide && listAndDetail && state.apps.isNotEmpty()) {
+                    TwoPaneLibrary(state, model, maxWidth)
+                } else {
+                    SinglePane(state, model, wide)
+                }
+            }
+
+            state.notice?.let { message ->
+                Notice(message) { model.dismissNotice() }
+            }
+
+            TabBar(state, model)
         }
     }
-
-    state.notice?.let { message ->
-        Notice(message) { model.dismissNotice() }
-    }
-
-    TabBar(state, model)
 }
+
+/** The list keeps its own pane; the detail for whatever is selected fills the rest. */
+@Composable
+private fun TwoPaneLibrary(state: VaultUiState, model: VaultViewModel, available: Dp) {
+    val listWidth = (available * 0.36f).coerceIn(300.dp, 420.dp)
+    Row(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.width(listWidth)) {
+            LibraryScreen(state, model, selectedId = state.detail?.id)
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(1.dp)
+                .background(VaultColors.Hairline),
+        )
+        Box(modifier = Modifier.weight(1f)) {
+            AppDetailScreen(state, model, showBackLink = false)
+        }
+    }
+}
+
+/**
+ * One screen at a time. On a wide display the reading measure is capped and centred, since a
+ * settings toggle stretched across eight inches is nobody's idea of an improvement.
+ */
+@Composable
+private fun SinglePane(state: VaultUiState, model: VaultViewModel, wide: Boolean) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Box(modifier = if (wide) Modifier.widthIn(max = 760.dp) else Modifier) {
+            when (state.screen) {
+                Screen.LIBRARY -> LibraryScreen(state, model)
+                Screen.DETAIL -> AppDetailScreen(state, model)
+                Screen.UPDATES -> UpdatesScreen(state, model)
+                Screen.ADD -> AddRepositoryScreen(state, model)
+                Screen.WRAP -> WrapWebsiteScreen(state, model)
+                Screen.BUILD -> ActionsBuildScreen(state, model)
+                Screen.SETTINGS -> SettingsScreen(state, model)
+                else -> Unit
+            }
+        }
+    }
+}
+
+private val WIDE_BREAKPOINT = 600.dp
 
 @Composable
 private fun AppBar(label: String) {
