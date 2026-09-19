@@ -81,8 +81,10 @@ private fun ColumnScope.InApp(state: VaultUiState, model: VaultViewModel) {
             .fillMaxWidth(),
     ) {
         // A width test rather than a device test: the same layout serves an unfolded foldable, a
-        // tablet, and any phone held in landscape, and folds back on the cover screen.
-        val wide = maxWidth >= WIDE_BREAKPOINT
+        // tablet, and any phone held in landscape, and folds back on the cover screen. Read the
+        // width here: Compose's layout scopes are DSL-marked, so it is out of reach once nested.
+        val available = maxWidth
+        val wide = available >= WIDE_BREAKPOINT
         val listAndDetail = state.screen == Screen.LIBRARY || state.screen == Screen.DETAIL
 
         Column(modifier = Modifier.fillMaxSize()) {
@@ -91,7 +93,7 @@ private fun ColumnScope.InApp(state: VaultUiState, model: VaultViewModel) {
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 if (wide && listAndDetail && state.apps.isNotEmpty()) {
-                    TwoPaneLibrary(state, model, maxWidth)
+                    TwoPaneLibrary(state, model, available)
                 } else {
                     SinglePane(state, model, wide)
                 }
