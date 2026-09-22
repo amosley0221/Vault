@@ -13,8 +13,8 @@ Native Kotlin + Jetpack Compose, built to the "Crowned Pixel" design handoff in 
 
 ## Install it on a phone
 
-Every push to this repository builds the APK and refreshes a rolling release, so there is always
-one stable link:
+Every push to `main` builds the APK and refreshes a rolling release, so there is always one stable
+link:
 
 **https://github.com/amosley0221/Vault/releases/download/latest/vault.apk**
 
