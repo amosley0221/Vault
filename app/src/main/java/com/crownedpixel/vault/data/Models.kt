@@ -168,6 +168,22 @@ object Versions {
     private val NUMBER = Regex("\\d+(?:[-+.][A-Za-z0-9.]+)?")
 
     /**
+     * Suffixes that genuinely mark a pre-release. A hyphen on its own does not: a great many
+     * projects label a build with a codename — 0.1.4-reed-drugstore — and that names the same
+     * release as 0.1.4, not an earlier one. Reading every suffix as semver would rank the plain
+     * tag above the installed build forever, so the update never clears.
+     */
+    private val PRERELEASE = Regex(
+        "(?:alpha|beta|rc|pre|preview|dev|snapshot|nightly|canary|eap|m)[.\\-_]?\\d*|\\d+(?:\\.\\d+)*",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private fun prerelease(value: String): String? {
+        val suffix = value.substringAfter('-', "")
+        return if (suffix.isNotEmpty() && PRERELEASE.matches(suffix)) suffix.lowercase() else null
+    }
+
+    /**
      * Digs a version out of a tag, a release title, or an APK filename. Returns null when the text
      * carries no version at all, which is what separates `v1.4.2` from `android-latest`.
      */
@@ -221,10 +237,13 @@ object Versions {
         val bBuild = b.substringAfter('+', "").toIntOrNull()
         if (aBuild != null && bBuild != null && aBuild != bBuild) return aBuild.compareTo(bBuild)
 
-        val aPre = a.contains('-')
-        val bPre = b.contains('-')
-        if (aPre != bPre) return if (aPre) -1 else 1
-        return a.compareTo(b)
+        val aPre = prerelease(a)
+        val bPre = prerelease(b)
+        if ((aPre == null) != (bPre == null)) return if (aPre != null) -1 else 1
+        if (aPre != null && bPre != null && aPre != bPre) return aPre.compareTo(bPre)
+        // Same numbers and the same pre-release standing. Any remaining difference is a codename,
+        // which says nothing about which build is newer — report a tie and let the caller decide.
+        return 0
     }
 
     fun isNewer(candidate: String?, installed: String?): Boolean = compare(candidate, installed) > 0
@@ -249,7 +268,12 @@ object UpdateCheck {
         val comparable = Versions.hasDigits(latestVersion) &&
             Versions.hasDigits(installedVersion) &&
             Versions.isDate(latestVersion) == Versions.isDate(installedVersion)
-        if (comparable) return Versions.isNewer(latestVersion, installedVersion)
+        if (comparable) {
+            val ordering = Versions.compare(latestVersion, installedVersion)
+            // Only a decisive comparison settles it. A tie can mean the two names differ by a
+            // codename alone, so fall through to the timestamps rather than calling it current.
+            if (ordering != 0) return ordering > 0
+        }
         if (latestMillis == null || installedMillis == null) return false
         return latestMillis > installedMillis + TOLERANCE_MS
     }
