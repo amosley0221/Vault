@@ -64,7 +64,9 @@ fun VaultApp(state: VaultUiState, model: VaultViewModel) {
         state.picker?.let { picker ->
             RepoPickerOverlay(
                 picker = picker,
-                onPick = model::pickFromPicker,
+                onPick = model::togglePick,
+                onSelectAll = model::toggleSelectAll,
+                onAddSelected = model::addSelectedFromPicker,
                 onRefresh = model::refreshPicker,
                 onClose = model::closePicker,
                 modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),

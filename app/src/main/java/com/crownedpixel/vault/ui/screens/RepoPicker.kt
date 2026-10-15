@@ -1,6 +1,7 @@
 package com.crownedpixel.vault.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -20,11 +22,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.crownedpixel.vault.data.RepoCandidate
+import com.crownedpixel.vault.ui.GoldButton
 import com.crownedpixel.vault.ui.Hairline
 import com.crownedpixel.vault.ui.PickerState
 import com.crownedpixel.vault.ui.PullToRefresh
 import com.crownedpixel.vault.ui.SectionLabel
 import com.crownedpixel.vault.ui.VaultColors
+import com.crownedpixel.vault.ui.VaultDimens
 import com.crownedpixel.vault.ui.jost
 import com.crownedpixel.vault.ui.press
 
@@ -33,6 +37,8 @@ import com.crownedpixel.vault.ui.press
 fun RepoPickerOverlay(
     picker: PickerState,
     onPick: (String) -> Unit,
+    onSelectAll: () -> Unit,
+    onAddSelected: () -> Unit,
     onRefresh: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -86,10 +92,42 @@ fun RepoPickerOverlay(
                         .fillMaxWidth(),
                 ) {
                     items(picker.items, key = { it.slug }) { candidate ->
-                        PickerRow(candidate) { onPick(candidate.slug) }
+                        PickerRow(
+                            candidate = candidate,
+                            selected = candidate.slug in picker.selected,
+                            onClick = { onPick(candidate.slug) },
+                        )
                         Hairline(color = VaultColors.Separator)
                     }
                 }
+            }
+        }
+
+        if (picker.items.isNotEmpty()) {
+            Hairline()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SectionLabel(
+                    text = if (picker.allSelected) "Clear" else "Select all ${picker.items.size}",
+                    color = VaultColors.Gold,
+                    modifier = Modifier.press(enabled = !picker.adding, onClick = onSelectAll),
+                )
+                GoldButton(
+                    text = when {
+                        picker.adding -> "Adding…"
+                        picker.selected.isEmpty() -> "Select to add"
+                        else -> "Track ${picker.selected.size}"
+                    },
+                    enabled = !picker.adding && picker.selected.isNotEmpty(),
+                    horizontalPadding = 20.dp,
+                    verticalPadding = 10.dp,
+                    onClick = onAddSelected,
+                )
             }
         }
     }
@@ -119,14 +157,17 @@ private fun PickerMessage(
 }
 
 @Composable
-private fun PickerRow(candidate: RepoCandidate, onClick: () -> Unit) {
-    Box(
+private fun PickerRow(candidate: RepoCandidate, selected: Boolean, onClick: () -> Unit) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .press(enabled = candidate.buildable, onClick = onClick)
+            .background(if (selected) VaultColors.Graphite else VaultColors.Onyx)
             .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column {
+        Tick(selected)
+        Column(modifier = Modifier.padding(start = 14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -147,6 +188,22 @@ private fun PickerRow(candidate: RepoCandidate, onClick: () -> Unit) {
                 style = jost(11, FontWeight.W300, VaultColors.Stone),
                 modifier = Modifier.padding(top = 2.dp),
             )
+        }
+    }
+}
+
+/** A square that fills with gold when ticked — the monogram's geometry at a smaller size. */
+@Composable
+private fun Tick(selected: Boolean) {
+    Box(
+        modifier = Modifier
+            .size(18.dp)
+            .border(VaultDimens.hairline, if (selected) VaultColors.Gold else VaultColors.Hairline)
+            .background(if (selected) VaultColors.Gold else Color.Transparent),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) {
+            BasicText(text = "✓", style = jost(11, FontWeight.W500, VaultColors.Onyx))
         }
     }
 }

@@ -89,8 +89,13 @@ data class PickerState(
     val loading: Boolean = true,
     val refreshing: Boolean = false,
     val items: List<RepoCandidate> = emptyList(),
+    /** Slugs ticked for a bulk add. Tracking is not installing, so this costs nothing to use. */
+    val selected: Set<String> = emptySet(),
+    val adding: Boolean = false,
     val error: String? = null,
-)
+) {
+    val allSelected: Boolean get() = items.isNotEmpty() && selected.size == items.size
+}
 
 data class VaultUiState(
     val screen: Screen = Screen.LIBRARY,
@@ -691,12 +696,16 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                 }.filterNotNull().filterNot { candidate ->
                     repos.any { it.slug.equals(candidate.slug, ignoreCase = true) }
                 }
+                val carried = _state.value.picker?.selected.orEmpty()
                 _state.value = _state.value.copy(
                     picker = PickerState(
                         title = kind.title,
                         kind = kind,
                         loading = false,
                         items = candidates,
+                        // A refresh keeps whatever was ticked, minus anything that has since
+                        // stopped qualifying — losing a long selection to a stray pull is rude.
+                        selected = carried.intersect(candidates.map { it.slug }.toSet()),
                     ),
                 )
             } catch (error: Exception) {
@@ -717,10 +726,81 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         _state.value = _state.value.copy(picker = null)
     }
 
-    fun pickFromPicker(slug: String) {
-        closePicker()
-        _state.value = _state.value.copy(addValue = slug, addError = null)
-        submitAdd()
+    fun togglePick(slug: String) {
+        val picker = _state.value.picker ?: return
+        if (picker.adding) return
+        val selected = if (slug in picker.selected) picker.selected - slug else picker.selected + slug
+        _state.value = _state.value.copy(picker = picker.copy(selected = selected))
+    }
+
+    fun toggleSelectAll() {
+        val picker = _state.value.picker ?: return
+        if (picker.adding) return
+        val selected = if (picker.allSelected) emptySet() else picker.items.map { it.slug }.toSet()
+        _state.value = _state.value.copy(picker = picker.copy(selected = selected))
+    }
+
+    /**
+     * Tracks every ticked repository in one pass. Nothing is downloaded or installed — each app
+     * lands in the library as "Not installed" until it is asked for by name.
+     */
+    fun addSelectedFromPicker() {
+        val picker = _state.value.picker ?: return
+        if (picker.adding) return
+        val slugs = picker.items.map { it.slug }.filter { it in picker.selected }
+        if (slugs.isEmpty()) return
+        val token = token()
+        _state.value = _state.value.copy(picker = picker.copy(adding = true, error = null))
+        viewModelScope.launch {
+            val limiter = Semaphore(4)
+            val fetched = coroutineScope {
+                slugs.map { slug ->
+                    async {
+                        limiter.withPermit {
+                            runCatching {
+                                val owner = slug.substringBefore('/')
+                                val name = slug.substringAfter('/')
+                                val repository = GitHubApi.repository(owner, name, token)
+                                val feed = GitHubApi.releases(owner, name, token)
+                                if (feed.none { it.apkAssets.isNotEmpty() }) null else Triple(slug, repository, feed)
+                            }.getOrNull()
+                        }
+                    }
+                }.map { it.await() }
+            }.filterNotNull()
+
+            val added = fetched.filterNot { (slug, _, _) ->
+                repos.any { it.slug.equals(slug, ignoreCase = true) }
+            }
+            added.forEach { (slug, repository, feed) ->
+                val owner = slug.substringBefore('/')
+                val name = slug.substringAfter('/')
+                val newest = feed.firstOrNull { it.apkAssets.isNotEmpty() }
+                repos = repos + TrackedRepo(
+                    owner = owner,
+                    repo = name,
+                    displayName = TrackedRepo.prettyName(name),
+                    description = repository?.text("description").orEmpty(),
+                    source = AppSource.RELEASES,
+                    latestTag = newest?.tag,
+                    latestVersion = newest?.version,
+                    latestPublishedAt = newest?.timestamp,
+                    addedAt = System.currentTimeMillis(),
+                )
+                releases["$owner/$name"] = feed
+            }
+            persist()
+            closePicker()
+            rebuild { it.copy(screen = Screen.LIBRARY, selected = null) }
+            val missed = slugs.size - added.size
+            notice(
+                buildString {
+                    append("Tracking ${added.size} ${if (added.size == 1) "repository" else "repositories"}")
+                    if (missed > 0) append(", $missed could not be read")
+                    append(". Nothing is installed until you ask for it.")
+                },
+            )
+        }
     }
 
     // ---------------------------------------------------------------- sign in
