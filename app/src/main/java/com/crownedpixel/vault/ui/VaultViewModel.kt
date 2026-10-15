@@ -91,10 +91,12 @@ data class PickerState(
     val items: List<RepoCandidate> = emptyList(),
     /** Slugs ticked for a bulk add. Tracking is not installing, so this costs nothing to use. */
     val selected: Set<String> = emptySet(),
-    val adding: Boolean = false,
+    /** Slugs being fetched right now, whether from one tap or a whole batch. */
+    val busy: Set<String> = emptySet(),
     val error: String? = null,
 ) {
     val allSelected: Boolean get() = items.isNotEmpty() && selected.size == items.size
+    val working: Boolean get() = busy.isNotEmpty()
 }
 
 data class VaultUiState(
@@ -728,29 +730,40 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
 
     fun togglePick(slug: String) {
         val picker = _state.value.picker ?: return
-        if (picker.adding) return
+        if (slug in picker.busy) return
         val selected = if (slug in picker.selected) picker.selected - slug else picker.selected + slug
         _state.value = _state.value.copy(picker = picker.copy(selected = selected))
     }
 
     fun toggleSelectAll() {
         val picker = _state.value.picker ?: return
-        if (picker.adding) return
+        if (picker.working) return
         val selected = if (picker.allSelected) emptySet() else picker.items.map { it.slug }.toSet()
         _state.value = _state.value.copy(picker = picker.copy(selected = selected))
     }
 
-    /**
-     * Tracks every ticked repository in one pass. Nothing is downloaded or installed — each app
-     * lands in the library as "Not installed" until it is asked for by name.
-     */
+    /** One tap on a row: track that repository and stay put, so the next one is one tap away. */
+    fun addOneFromPicker(slug: String) = trackFromPicker(listOf(slug), closeAfter = false)
+
+    /** The footer button: track everything ticked, then hand the library back. */
     fun addSelectedFromPicker() {
         val picker = _state.value.picker ?: return
-        if (picker.adding) return
-        val slugs = picker.items.map { it.slug }.filter { it in picker.selected }
+        trackFromPicker(picker.items.map { it.slug }.filter { it in picker.selected }, closeAfter = true)
+    }
+
+    /**
+     * Tracks repositories without installing anything: each one lands in the library as "Not
+     * installed" until it is asked for by name. Serves both the single tap and the batch, which
+     * differ only in whether the picker stays open afterwards.
+     */
+    private fun trackFromPicker(requested: List<String>, closeAfter: Boolean) {
+        val picker = _state.value.picker ?: return
+        val slugs = requested.filterNot { it in picker.busy }
         if (slugs.isEmpty()) return
         val token = token()
-        _state.value = _state.value.copy(picker = picker.copy(adding = true, error = null))
+        _state.value = _state.value.copy(
+            picker = picker.copy(busy = picker.busy + slugs, error = null),
+        )
         viewModelScope.launch {
             val limiter = Semaphore(4)
             val fetched = coroutineScope {
@@ -790,8 +803,26 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                 releases["$owner/$name"] = feed
             }
             persist()
-            closePicker()
-            rebuild { it.copy(screen = Screen.LIBRARY, selected = null) }
+            val tracked = added.map { it.first }.toSet()
+            // Nothing tracked means nothing to show in the library, so stay here with the reason
+            // on screen rather than dropping the user somewhere that looks unchanged.
+            if (closeAfter && added.isNotEmpty()) {
+                closePicker()
+                rebuild { it.copy(screen = Screen.LIBRARY, selected = null) }
+            } else {
+                // A tracked repository no longer belongs in a list of ones you could add, so drop
+                // the row rather than reloading every release feed to learn the same thing.
+                rebuild { state ->
+                    val open = state.picker ?: return@rebuild state
+                    state.copy(
+                        picker = open.copy(
+                            items = open.items.filterNot { it.slug in tracked },
+                            selected = open.selected - slugs.toSet(),
+                            busy = open.busy - slugs.toSet(),
+                        ),
+                    )
+                }
+            }
             val missed = slugs.size - added.size
             notice(
                 buildString {

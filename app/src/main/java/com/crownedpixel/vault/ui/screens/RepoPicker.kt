@@ -37,6 +37,7 @@ import com.crownedpixel.vault.ui.press
 fun RepoPickerOverlay(
     picker: PickerState,
     onPick: (String) -> Unit,
+    onAddOne: (String) -> Unit,
     onSelectAll: () -> Unit,
     onAddSelected: () -> Unit,
     onRefresh: () -> Unit,
@@ -95,7 +96,9 @@ fun RepoPickerOverlay(
                         PickerRow(
                             candidate = candidate,
                             selected = candidate.slug in picker.selected,
-                            onClick = { onPick(candidate.slug) },
+                            busy = candidate.slug in picker.busy,
+                            onTick = { onPick(candidate.slug) },
+                            onAdd = { onAddOne(candidate.slug) },
                         )
                         Hairline(color = VaultColors.Separator)
                     }
@@ -115,19 +118,22 @@ fun RepoPickerOverlay(
                 SectionLabel(
                     text = if (picker.allSelected) "Clear" else "Select all ${picker.items.size}",
                     color = VaultColors.Gold,
-                    modifier = Modifier.press(enabled = !picker.adding, onClick = onSelectAll),
+                    modifier = Modifier.press(enabled = !picker.working, onClick = onSelectAll),
                 )
-                GoldButton(
-                    text = when {
-                        picker.adding -> "Adding…"
-                        picker.selected.isEmpty() -> "Select to add"
-                        else -> "Track ${picker.selected.size}"
-                    },
-                    enabled = !picker.adding && picker.selected.isNotEmpty(),
-                    horizontalPadding = 20.dp,
-                    verticalPadding = 10.dp,
-                    onClick = onAddSelected,
-                )
+                if (picker.selected.isEmpty()) {
+                    BasicText(
+                        text = "Tap a row to add it · tick to batch",
+                        style = jost(11, FontWeight.W300, VaultColors.Stone),
+                    )
+                } else {
+                    GoldButton(
+                        text = if (picker.working) "Adding…" else "Track ${picker.selected.size}",
+                        enabled = !picker.working,
+                        horizontalPadding = 20.dp,
+                        verticalPadding = 10.dp,
+                        onClick = onAddSelected,
+                    )
+                }
             }
         }
     }
@@ -157,17 +163,34 @@ private fun PickerMessage(
 }
 
 @Composable
-private fun PickerRow(candidate: RepoCandidate, selected: Boolean, onClick: () -> Unit) {
+private fun PickerRow(
+    candidate: RepoCandidate,
+    selected: Boolean,
+    busy: Boolean,
+    onTick: () -> Unit,
+    onAdd: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .press(enabled = candidate.buildable, onClick = onClick)
-            .background(if (selected) VaultColors.Graphite else VaultColors.Onyx)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .background(if (selected) VaultColors.Graphite else VaultColors.Onyx),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Tick(selected)
-        Column(modifier = Modifier.padding(start = 14.dp)) {
+        // The tick is its own target so one tap on the row still adds one repository outright.
+        // Batching is the extra gesture, not the default — a single add stays a single tap.
+        Box(
+            modifier = Modifier
+                .press(enabled = !busy, onClick = onTick)
+                .padding(start = 20.dp, end = 6.dp, top = 14.dp, bottom = 14.dp),
+        ) {
+            Tick(selected)
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .press(enabled = candidate.buildable && !busy, onClick = onAdd)
+                .padding(start = 8.dp, end = 20.dp, top = 14.dp, bottom = 14.dp),
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -179,7 +202,7 @@ private fun PickerRow(candidate: RepoCandidate, selected: Boolean, onClick: () -
                     modifier = Modifier.weight(1f),
                 )
                 SectionLabel(
-                    text = candidate.tag,
+                    text = if (busy) "Adding…" else candidate.tag,
                     color = if (candidate.buildable) VaultColors.Gold else VaultColors.Stone,
                 )
             }
